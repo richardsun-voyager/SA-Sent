@@ -21,7 +21,8 @@ class LinearCRF(nn.Module):
     
     # no batch size
     def predict(self, feats):
-        feats = feats.unsqueeze(0)
+        #batch_size*sent_len*dim
+        #feats = feats.unsqueeze(0)
         return self._viterbi_decode(feats)[0]
 
     # feats: batch * sent_l * label_size
@@ -78,7 +79,7 @@ class LinearCRF(nn.Module):
         # pdb.set_trace()
         # batch_size 1d tensor
         alpha = util.log_sum_exp_m(terminal_var)
-        return alpha, forward_var[1:].squeeze(1)
+        return alpha, forward_var[1:]
 
     # for sanity check
     def _backward_alg(self, feats):
@@ -112,11 +113,12 @@ class LinearCRF(nn.Module):
         terminal_var = backward_var[0]
         #pdb.set_trace()
         beta = util.log_sum_exp_m(terminal_var)
-        return beta, backward_var[:-1].squeeze(1)
+        return beta, backward_var[:-1]
     
     # feats is batch * sent_l * label_size
     def _viterbi_decode(self, feats):
-        batch_size, sent_len, _ = feats.size()        
+        batch_size, sent_len, _ = feats.size()       
+        #seq_len*dim*batch_size 
         feats = feats.transpose(0,1).transpose(1,2).contiguous()
 
         # it should finally with the size: sent_len * label_size * batch_size
@@ -193,17 +195,22 @@ class LinearCRF(nn.Module):
 
 
     def forward(self, feats):
-        sent_len, feat_dim = feats.size()
-        i_feats = feats.unsqueeze(0)
-        Z1, forward_mat = self._forward_alg(i_feats) 
-        Z2, backward_mat = self._backward_alg(i_feats)
+        #print('CRF ', feats.size())
+        batch_size, sent_len, feat_dim = feats.size()
+        #i_feats = feats.unsqueeze(0)
+        Z1, forward_mat = self._forward_alg(feats) 
+        Z2, backward_mat = self._backward_alg(feats)
         # assert Z1[0] == Z2[0]
-        forward_v = forward_mat
-        backward_v = backward_mat
+        forward_v = forward_mat.transpose(0, 1)
+        backward_v = backward_mat.transpose(0, 1)
+
+        # print('Forward size:', forward_v.size())
+        # print('backward size:', backward_v.size())
 
         message_v = forward_v + backward_v - feats
-        Z = Z1.expand(sent_len * self.label_size).contiguous().view(sent_len, self.label_size)
+        Z = Z1.expand(sent_len * self.label_size, batch_size).contiguous().view(-1, sent_len, self.label_size)
         marginal_v = torch.exp(message_v - Z)
+        # print('Marginal', marginal_v.size())
 
         return marginal_v
 

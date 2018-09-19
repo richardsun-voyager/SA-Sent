@@ -26,7 +26,7 @@ def argmax_m(mat):
         ret_ind.append(ind_)
         ret_v.append(mat[i][ind_])
     if type(ret_v[0]) == Variable or type(ret_v[0]) == torch.Tensor:
-        return ret_ind, torch.cat(ret_v)
+        return ret_ind, torch.stack(ret_v)
     else:
         return ret_ind, torch.Tensor(ret_v)
 
@@ -41,7 +41,7 @@ def log_sum_exp_m(mat):
         max_score_broadcast = max_score.view( -1).expand(1, vec.size()[0])
         ret_l.append( max_score + \
         torch.log(torch.sum(torch.exp(vec - max_score_broadcast))))
-    return torch.cat(ret_l, 0)
+    return torch.stack(ret_l)
 
 def log_sum_exp(vec_list):
     tmp_mat = torch.stack(vec_list, 0)
