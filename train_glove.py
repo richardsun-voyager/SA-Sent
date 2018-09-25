@@ -1,16 +1,17 @@
 #!/usr/bin/python
 from __future__ import division
 from model_glove import *
-from data_reader import data_reader
+from data_reader import *
 from config import config
 import pickle
+from Layer import GloveMaskCat
 import numpy as np
 import codecs
 import copy
 import os
 
 def adjust_learning_rate(optimizer, epoch):
-    lr = config.lr / (2 ** (epoch // config.adjust_every))
+    lr = config.lr / (1.5 ** (epoch // config.adjust_every))
     print("Adjust lr to ", lr)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
@@ -32,40 +33,56 @@ def load_data(data_path, if_utf=False):
     f.close()
     return obj
 
-def pad_data(sents, masks, labels):
-    sent_lens = [len(tokens) for tokens in sents]
-    sent_lens = torch.LongTensor(sent_lens)
-    label_list = torch.LongTensor(labels)
-    max_len = max(sent_lens)
-    batch_size = len(sent_lens)
-    #Padding mask
-    mask_vecs = np.zeros([batch_size, max_len])
-    mask_vecs = torch.LongTensor(mask_vecs)
-    for i, mask in enumerate(masks):
-        mask_vecs[i, :len(mask)] = torch.LongTensor(mask)
-    #padding sent
-    sent_vecs = np.zeros([batch_size, max_len])
-    sent_vecs = torch.LongTensor(sent_vecs)
-    for i, s in enumerate(sents):
-        sent_vecs[i, :len(s)] = torch.LongTensor(s)
-    sent_lens, perm_idx = sent_lens.sort(0, descending=True)
-    sent_vecs = sent_vecs[perm_idx]
-    mask_vecs = mask_vecs[perm_idx]
-    label_list = label_list[perm_idx]
-    return sent_vecs, mask_vecs, label_list, sent_lens
-
 
 
 id2word = load_data('data/bailin_data/dic.pkl')
 id2label = ["positive", "neutral", "negative"]
+#Load concatenation layer and attention model layer
+cat_layer = GloveMaskCat(config)
+
 
 def train():
     print(config)
     best_acc = 0
     best_model = None
 
-    train_batch, test_batch = load_data('data/bailin_data/data.pkl')
+    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+    #TRAIN_DATA_PATH = "data/Indonesian/indo_tweets.csv"
 
+
+    #First time, need to preprocess and save the data
+    #Read XML file
+    # dr = data_reader(config)
+    # dr.read_raw_data(TRAIN_DATA_PATH)
+    # dr.split_save_data(config.train_path, config.valid_path)
+    # dr_test = data_reader(config, False)
+    # dr_test.read_raw_data(TEST_DATA_PATH)
+    # dr_test.save_data(config.test_path)
+    # print('Data Preprocessed!')
+
+    #Read CSV  file
+    # dr = data_reader(config)
+    # dr.read_raw_data(TRAIN_DATA_PATH, 'csv')
+    # dr.split_save_data(config.train_path, config.valid_path)
+    # dr_test = data_reader(config, False)
+    # dr_test.read_raw_data(TEST_DATA_PATH)
+    # dr_test.save_data(config.test_path)
+    print('Data Preprocessed!')
+
+    # cat_layer.load_vector()
+
+
+    #Load preprocessed data directly
+    dr = data_reader(config)
+    dr.load_data(config.train_path)
+    dr_valid = data_reader(config, False)
+    dr_valid.load_data(config.valid_path)
+    dr_test = dr_valid
+    dr_test = data_reader(config, False)
+    dr_test.load_data(config.test_path)
+
+    #train_batch, test_batch = load_data('data/bailin_data/data.pkl')
     #sent_vecs, mask_vecs, label_list, sent_lens = dr.get_samples()
 
     model = attTSA(config)
@@ -80,36 +97,77 @@ def train():
     with open(config.log_path+'log.txt', 'w') as f:
         f.write('Start Experiment\n')
 
-
+    loops = int(dr.data_len/config.batch_size)
     for e_ in range(config.epoch):
         print("Epoch ", e_ + 1)
         model.train()
         if e_ % config.adjust_every == 0:  
             adjust_learning_rate(optimizer, e_)
 
-        for i, triple_list in enumerate(train_batch):
+        for _ in np.arange(loops):
             model.zero_grad() 
-            if len(triple_list) == 0: 
-                continue
-            ##Modified by Richard Sun
-            sent, mask, label = zip(*triple_list)
-
-            #print('Preprocessing...')
-            sent_vecs, mask_vecs, label_list, sent_lens = pad_data(sent, mask, label)
-
-            cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
+            sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_ids_samples())
+            sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
+            if config.if_gpu: 
+                sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
+                label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
+            cls_loss = model(sent_vecs, target_avg, label_list, sent_lens)
             l2_loss = 0
-            for w in parameters:
-                l2_loss += torch.norm(w)
-            if i %30 == 0:
-                print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
-            cls_loss += l2_loss * 0.001
+            for w in model.parameters():
+                if w is not None:
+                    l2_loss += w.norm(2)
+            print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
+            cls_loss += l2_loss * 0.0005
             cls_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
             optimizer.step()
 
-        acc = evaluate_test(test_batch, model)
-        print("Test acc: ", acc)
+        acc = 0
+        acc = evaluate_test(dr_valid, model)
+        with open(config.log_path+'log.txt', 'a') as f:
+            f.write('Epoch '+str(e_)+'\n')
+            f.write('Validation accuracy:'+str(acc)+'\n')
+            if e_ % 1 == 0:
+                print('Testing....')
+                acc = evaluate_test(dr_test, model)
+                f.write('Testing accuracy:'+str(acc)+'\n')
+
+
+        ################Below are for Bailin's data
+        # for i, triple_list in enumerate(train_batch):
+        #     model.zero_grad() 
+        #     if len(triple_list) == 0: 
+        #         continue
+        #     ##Modified by Richard Sun
+        #     sent, mask, label = zip(*triple_list)
+
+        #     #print('Preprocessing...')
+        #     sent_vecs, mask_vecs, label_list, sent_lens = pad_data(sent, mask, label)
+
+        #     cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
+        #     l2_loss = 0
+        #     for w in parameters:
+        #         l2_loss += torch.norm(w)
+        #     if i %30 == 0:
+        #         print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
+        #     cls_loss += l2_loss * 0.001
+        #     cls_loss.backward()
+        #     torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
+        #     optimizer.step()
+
+                #Save the model
+        # acc = 0
+        #print('Validating....')
+        #acc = evaluate_test(dr_valid, model)
+        #Record the result
+        
+        # with open(config.log_path+'log.txt', 'a') as f:
+        #     f.write('Epoch '+str(e_)+'\n')
+        #     f.write('Validation accuracy:'+str(acc)+'\n')
+        #     if e_ % 2 == 0:
+        #         print('Testing....')
+        #         acc = evaluate_test(dr_test, model)
+        #         f.write('Testing accuracy:'+str(acc)+'\n')
 
         # for _ in np.arange(loops):
         #     model.zero_grad() 
@@ -150,42 +208,48 @@ def visualize(sent, mask, best_seq, pred_label, gold):
     print("Predict: {0}, Gold: {1}".format(id2label[pred_label], id2label[gold]))
     print("")
 
-def evaluate_test(test_batch, model):
-    print("Evaluting")
-    model.eval()
-    all_counter = 0
-    correct_count = 0
-    for triple_list in test_batch:
-        model.zero_grad() 
-        if len(triple_list) == 0: 
-            continue
-        ##Modified by Richard Sun
-        sent, mask, label = triple_list
-        all_counter += len(sent)
+# def evaluate_test(test_batch, model):
+#     print("Evaluting")
+#     model.eval()
+#     all_counter = 0
+#     correct_count = 0
+#     for triple_list in test_batch:
+#         model.zero_grad() 
+#         if len(triple_list) == 0: 
+#             continue
+#         ##Modified by Richard Sun
+#         sent, mask, label = triple_list
+#         all_counter += len(sent)
 
-        #print('Preprocessing...')
-        sent_vecs, mask_vecs, label_list, sent_lens = pad_data([sent], [mask], [label])
-        #print(sent_vecs.size())
-        pred_label = model.predict(sent_vecs, mask_vecs, sent_lens)
+#         #print('Preprocessing...')
+#         sent_vecs, mask_vecs, label_list, sent_lens = pad_data([sent], [mask], [label])
+#         #print(sent_vecs.size())
+#         pred_label = model.predict(sent_vecs, mask_vecs, sent_lens)
 
-        correct_count += sum(pred_label==label_list).item()
+#         correct_count += sum(pred_label==label_list).item()
             
-    acc = correct_count * 1.0 / len(test_batch)
-    print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
-    return acc
+#     acc = correct_count * 1.0 / len(test_batch)
+#     print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+#     return acc
 
-def evaluate_dev(dev_batch, model):
+def evaluate_test(dr_test, model):
     print("Evaluting")
+    dr_test.reset_samples()
     model.eval()
     all_counter = 0
     correct_count = 0
-    for triple_list in dev_batch:
-        for sent, mask, label in triple_list:
-            pred_label, best_seq = model.predict(sent, mask) 
+    while dr_test.index < dr_test.data_len:
+        sent, mask, label, sent_len = next(dr_test.get_ids_samples())
+        sent, target = cat_layer(sent, mask)
+        if config.if_gpu: 
+            sent, target = sent.cuda(), target.cuda()
+            label, sent_len = label.cuda(), sent_len.cuda()
+        pred_label  = model.predict(sent, target, sent_len) 
 
-            all_counter += 1
-            if pred_label == label:  correct_count += 1
-    acc = correct_count * 1.0 / all_counter
+        correct_count += sum(pred_label==label).item()
+    if dr_test.data_len < 1:
+        print('Testing Data Error')
+    acc = correct_count * 1.0 / dr_test.data_len
     print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 

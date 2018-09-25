@@ -16,7 +16,7 @@ class AspectSent(nn.Module):
     def __init__(self, config):
         super(AspectSent, self).__init__()
         self.config = config
-        self.cat_layer = SimpleCat(config)
+        #self.cat_layer = SimpleCat(config)
 
         self.lstm = MLSTM(config)
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
@@ -28,18 +28,19 @@ class AspectSent(nn.Module):
         #If we use Elmo, don't load GloVec
         #self.cat_layer.load_vector()
 
-        if not config.if_update_embed:  self.cat_layer.word_embed.weight.requires_grad = False
+        #if not config.if_update_embed:  self.cat_layer.word_embed.weight.requires_grad = False
 
     
     def compute_scores(self, sent, mask, lens):
-        if self.config.if_reset:  self.cat_layer.reset_binary()
+        #if self.config.if_reset:  self.cat_layer.reset_binary()
         # self.inter_crf.reset_transition()
 
         #sent = torch.LongTensor(sent)
         #sent = sent
         #Batch_size
-        sent_vec = self.cat_layer(sent, mask)
+        #sent_vec = self.cat_layer(sent, mask)
         #print('After concatenation:', sent_vec.size())
+        sent_vec = sent
 
         context = self.lstm(sent_vec, lens)#Batch_size*sent_len*hidden_dim
         #print('After lstm:', context.size())
@@ -60,13 +61,14 @@ class AspectSent(nn.Module):
         return label_scores, select_polarity, marginals
 
     def compute_predict_scores(self, sent, mask, lens):
-        if self.config.if_reset:  self.cat_layer.reset_binary()
+        #if self.config.if_reset:  self.cat_layer.reset_binary()
         # self.inter_crf.reset_transition()
 
         #sent = torch.LongTensor(sent)
         #mask = torch.LongTensor(mask)
         #1*word_len*emb_dim
-        sent_vec = self.cat_layer(sent, mask)
+        #sent_vec = self.cat_layer(sent, mask)
+        sent_vec = sent
 
         context = self.lstm(sent_vec, lens)
         #Modified by Richard Sun

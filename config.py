@@ -5,9 +5,10 @@ class Config():
         # for reader
         self.batch_size = 32
 
-        self.embed_num = 5135
+        #Map words to lower case
+        self.embed_num = 4334
         #For elmo the emb_size is 1024
-        self.embed_dim = 1024
+        self.embed_dim = 300
         self.mask_dim = 50
         self.if_update_embed = False
 
@@ -23,10 +24,10 @@ class Config():
 
         self.opt = "Adam"
         self.dropout = 0.4
-        self.epoch = 20
-        self.lr = 0.008 / self.batch_size
+        self.epoch = 30
+        self.lr = 0.03 / self.batch_size
         self.l2 = 0.0
-        self.adjust_every = 10
+        self.adjust_every = 8
         self.clip_norm = 3
         self.k_fold = 6
 
@@ -35,11 +36,30 @@ class Config():
 
         # traning
         self.if_gpu = False
+        # self.data_path = "data/2014/data.pkl"
+        # self.dic_path = "data/2014/dic.pkl"
 
-        # self.embed_path = "./data/2016/pre-trained-google.pkl"
-        self.embed_path = "data/2014/pre-trained-glove.pkl"
+        #################Restaurant
+        #self.embed_path = "./data/2016/pre-trained-google.pkl"
+        self.embed_path = "data/2014/vocab/local_emb.pkl"
+        self.pretrained_embed_path = "../data/word_embeddings/glove.6B.300d.txt"
         self.data_path = "data/2014/data.pkl"
-        self.dic_path = "data/2014/dic.pkl"
+        self.train_path = "data/2014/train.pkl"
+        self.valid_path = "data/2014/valid.pkl"
+        self.test_path = "data/2014/test.pkl"
+        self.dic_path = "data/2014/vocab/dict.pkl"
+        ################Indonesian
+        #record embeddings
+        # self.embed_path = "data/Indonesian/vocab/local_emb.pkl"
+        # self.pretrained_embed_path = "../data/word_embeddings/indo_vectors.txt"
+        # self.data_path = "data/Indonesian/data.pkl"
+        # self.train_path = "data/Indonesian/train.pkl"
+        # self.valid_path = "data/Indonesian/valid.pkl"
+        # self.test_path = "data/Indonesian/test.pkl"
+        # #Record words, index, dictionary
+        # self.dic_path = "data/Indonesian/vocab/dict.pkl"
+
+
         self.model_path = "data/models/"
         self.log_path = "data/logs/"
 

@@ -10,7 +10,6 @@ from CRF import LinearCRF
 import math
 from util import *
 from torch.nn import utils as nn_utils
-from Layer import GloveMaskCat
 import torch.nn.init as init
 def init_ortho(module):
     for weight_ in module.parameters():
@@ -21,8 +20,8 @@ class MLSTM(nn.Module):
     def __init__(self, config):
         super(MLSTM, self).__init__()
         self.config = config
-
-        self.rnn = nn.LSTM(300 , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        #The concatenated word embedding and target embedding as input
+        self.rnn = nn.LSTM(config.embed_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -59,12 +58,9 @@ class attTSA(nn.Module):
     def __init__(self, config):
         super(attTSA, self).__init__()
         self.config = config
-        self.cat_layer = GloveMaskCat(config)
-
-        self.cat_layer.load_vector()
 
         self.lstm = MLSTM(config)
-        self.target2vec = nn.Linear(300, config.l_hidden_size)
+        self.target2vec = nn.Linear(config.embed_dim, config.l_hidden_size)
         self.vec2label = nn.Linear(config.l_hidden_size, 3)
         self.concatvec_linear = nn.Linear(2*config.l_hidden_size, 1)
 
@@ -74,28 +70,18 @@ class attTSA(nn.Module):
         #If we use Elmo, don't load GloVec
         #self.cat_layer.load_vector()
 
-    def compute_score(self, sent, mask, lens):
+    def compute_score(self, sent, target, lens):
         '''
         inputs are list of list for the convenince of top CRF
         Args:
-        sent: a list of sentences， batch_size*len*emb_dim
-        mask: a list of mask for each sentence, batch_size*len
+        sent: a list of sentences， batch_size*max_len*(2*emb_dim)
+        target: a list of target embedding for each sentence, batch_size*emb_dim
         label: a list labels
         '''
 
         #Get the target embedding
-        
         batch_size, sent_len, dim = sent.size()
-        #Broadcast mask into3-dimensional
-        target_count = mask.sum(1).type_as(sent)#Count the number of target words for each sentence
-        #Batch_size * sent_len * emb_dim
-        mask = mask.expand(dim, batch_size, sent_len).transpose(0, 1).transpose(1,2)
-        mask = mask.type_as(sent)#Longtensor to floattensor
-        #make the target as average embedding of words
-        #target = torch.mean(sent * mask, 1)#Batch_size*emb_dim
-        target_sum = (sent * mask).sum(1)#Batch_size*emb_dim
-        target_count = target_count.expand(dim, batch_size).transpose(0,1)
-        target = torch.div(target_sum, target_count)#average embedding
+
 
         #reduce dimension
         target_vec = self.target2vec(target)#Batch_size*hidden_dim
@@ -130,12 +116,11 @@ class attTSA(nn.Module):
         return scores
 
    
-    def forward(self, sent, mask, label, lens):
+    def forward(self, sent, target, label, lens):
         #Sent emb_dim + 50
-        sent = self.cat_layer(sent, mask)
         
         sent = F.dropout(sent, p=0.2, training=self.training)
-        scores = self.compute_score(sent, mask, lens)
+        scores = self.compute_score(sent, target, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
         cls_loss = loss(scores, label)
@@ -143,9 +128,9 @@ class attTSA(nn.Module):
         #print('Transition', pena)
         return cls_loss 
 
-    def predict(self, sent, mask, sent_len):
-        sent = self.cat_layer(sent, mask)
-        scores = self.compute_score(sent, mask, sent_len)
+    def predict(self, sent, target, sent_len):
+        #sent = self.cat_layer(sent, mask)
+        scores = self.compute_score(sent, target, sent_len)
         _, pred_label = scores.max(1)#Find the max label in the 2nd dimension
         
         #Modified by Richard Sun

@@ -8,6 +8,7 @@ import numpy as np
 import codecs
 import copy
 import os
+from Layer import SimpleCat
 
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (2 ** (epoch // config.adjust_every))
@@ -34,17 +35,29 @@ def load_data(data_path, if_utf=False):
 
 id2label = ["positive", "neutral", "negative"]
 
+cat_layer = SimpleCat(config)
+cat_layer.load_vector()
+cat_layer.word_embed.weight.requires_grad = False
+
 def train():
     print(config)
     best_acc = 0
     best_model = None
 
+    # dr = data_reader(config)
+    # dr.load_data('data/2014/training.pickle')
+    # dr_valid = data_reader(config, False)
+    # dr_valid.load_data('data/2014/valid.pickle')
+    # dr_test = data_reader(config, False)
+    # dr_test.load_data('data/2014/testing.pickle')
+
+
+    ###Indoneisan
     dr = data_reader(config)
-    dr.load_data('data/2014/training.pickle')
+    dr.load_data(config.train_path)
     dr_valid = data_reader(config, False)
-    dr_valid.load_data('data/2014/valid.pickle')
-    dr_test = data_reader(config, False)
-    dr_test.load_data('data/2014/testing.pickle')
+    dr_valid.load_data(config.valid_path)
+    dr_test = dr_valid
 
     #sent_vecs, mask_vecs, label_list, sent_lens = dr.get_samples()
 
@@ -70,7 +83,8 @@ def train():
 
         for _ in np.arange(loops):
             model.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_ids_samples())
+            sent_vecs = cat_layer(sent_vecs, mask_vecs, False)
             if config.if_gpu: 
                 sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
                 label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
@@ -96,16 +110,16 @@ def train():
 
 
 
-def visualize(sent, mask, best_seq, pred_label, gold):
-    try:
-        print(u" ".join([id2word[x] for x in sent]))
-    except:
-        print("unknow char..")
-        return
-    print("Mask", mask)
-    print("Seq", best_seq)
-    print("Predict: {0}, Gold: {1}".format(id2label[pred_label], id2label[gold]))
-    print("")
+# def visualize(sent, mask, best_seq, pred_label, gold):
+#     try:
+#         print(u" ".join([id2word[x] for x in sent]))
+#     except:
+#         print("unknow char..")
+#         return
+#     print("Mask", mask)
+#     print("Seq", best_seq)
+#     print("Predict: {0}, Gold: {1}".format(id2label[pred_label], id2label[gold]))
+#     print("")
 
 def evaluate_test(dr_test, model):
     print("Evaluting")
@@ -115,12 +129,13 @@ def evaluate_test(dr_test, model):
     correct_count = 0
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len = next(dr_test.get_samples())
+        sent, mask, label, sent_len = next(dr_test.get_ids_samples())
+        sent = cat_layer(sent, mask, False)
         if config.if_gpu: 
             sent, mask = sent.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()
         pred_label, best_seq = model.predict(sent, mask, sent_len) 
-        visualize(sent, mask, best_seq, pred_label, label)
+        #visualize(sent, mask, best_seq, pred_label, label)
 
         correct_count += sum(pred_label==label).item()
             
@@ -128,20 +143,20 @@ def evaluate_test(dr_test, model):
     print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
-def evaluate_dev(dev_batch, model):
-    print("Evaluting")
-    model.eval()
-    all_counter = 0
-    correct_count = 0
-    for triple_list in dev_batch:
-        for sent, mask, label in triple_list:
-            pred_label, best_seq = model.predict(sent, mask) 
+# def evaluate_dev(dev_batch, model):
+#     print("Evaluting")
+#     model.eval()
+#     all_counter = 0
+#     correct_count = 0
+#     for triple_list in dev_batch:
+#         for sent, mask, label in triple_list:
+#             pred_label, best_seq = model.predict(sent, mask) 
 
-            all_counter += 1
-            if pred_label == label:  correct_count += 1
-    acc = correct_count * 1.0 / all_counter
-    print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
-    return acc
+#             all_counter += 1
+#             if pred_label == label:  correct_count += 1
+#     acc = correct_count * 1.0 / all_counter
+#     print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+#     return acc
 
 if __name__ == "__main__":
     train()
