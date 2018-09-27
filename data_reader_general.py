@@ -164,11 +164,12 @@ class dataHelper():
             sent_inst = sent_inst._replace(opinions = opinion_list)
             data[sent_i] = sent_inst
         #Map a token into an ID
-        data, words = self.text2ids(data, text_words, is_training)
+        #data, words = self.text2ids(data, text_words, is_training)
+        return data, text_words
 
-        return data, words
+    
 
-    def text2ids(self, data, texts, is_training):
+    def text2ids(self, data, is_training):
         '''
         Map each word into an id in a text
         Args:
@@ -177,21 +178,12 @@ class dataHelper():
         '''
         #Build vocab
         dict_file = config.dic_path
-        dict_path = os.path.dirname(dict_file)
-        if is_training:
-            word2id, id2word, words = self.build_local_vocab(texts, self.config.embed_num)
-            #Save the dictionary
-            if not os.path.exists(dict_path):
-                print('Dictionary path doesnot exist')
-                print('Create...')
-                os.mkdir(dict_path)
-            with open(dict_file, 'wb') as f:
-                pickle.dump([word2id, id2word, words], f)
-        else:
-            if not os.path.exists(dict_file):
-                print('Dictionary file not exist!')
-            with open(dict_file, 'rb') as f:
-                word2id, id2word, words = pickle.load(f)
+
+        #The dictionary must be created in advance
+        if not os.path.exists(dict_file):
+            print('Dictionary file not exist!')
+        with open(dict_file, 'rb') as f:
+            word2id, _, _ = pickle.load(f)
 
         def w2id(w):
             try:
@@ -215,7 +207,6 @@ class dataHelper():
             sent_ids = [w2id(token) for token in sent_tokens]
             sent_inst = sent_inst._replace(text_ids = sent_ids)
             #Read  opinion info
-            opinion_list = []
             opi_len = len(sent_inst.opinions)
             #Map target words into IDs
             for opi_i in np.arange(opi_len):
@@ -226,12 +217,12 @@ class dataHelper():
                 opi_inst = opi_inst._replace(target_ids=target_ids)
                 sent_inst.opinions[opi_i] = opi_inst
             data[sent_i] = sent_inst
-        return data, words
+        return data
 
 
     def build_local_vocab(self, texts, max_size):
         '''
-        Build a vocabulary based on current texts
+        Build and save a vocabulary based on current texts
         texts: lists of words
         '''
         words = []
@@ -255,7 +246,18 @@ class dataHelper():
         print('Local Vocabulary Size:', len(words))
         word2id = {w:i for i, w in enumerate(words)}
         id2word = {i:w for i, w in enumerate(words)}
-        return word2id, id2word, words
+
+        #Save the dictionary
+        dict_file = config.dic_path
+        dict_path = os.path.dirname(dict_file)  
+        if not os.path.exists(dict_path):
+            print('Dictionary path doesnot exist')
+            print('Create...')
+            os.mkdir(dict_path)
+        with open(dict_file, 'wb') as f:
+            pickle.dump([word2id, id2word, words], f)
+            print('Dictionary created successfully')
+        return words
 
 
     def get_local_word_embeddings(self, pretrained_word_emb, local_vocab):
@@ -317,11 +319,10 @@ class dataHelper():
         #self.test_data = self.read_xml_data(test_data)
         print('Dataset number:', len(train_data))
         #print('Testing dataset number:', len(self.test_data))
-        data, words = self.process_raw_data(train_data, is_training)
-        #pretrained_emb_path = '../data/word_embeddings/sswe-u.txt'
-        #pretrained_emb_path = '../data/word_embeddings/glove.6B.100d.txt'
-        emb = self.load_pretrained_word_emb(config.pretrained_embed_path)
-        _ = self.get_local_word_embeddings(emb, words)
+        data = self.process_raw_data(train_data, is_training)
+
+        # emb = self.load_pretrained_word_emb(config.pretrained_embed_path)
+        # _ = self.get_local_word_embeddings(emb, words)
         #test_data = self.process_raw_data(self.test_data)
         return data
     
@@ -364,6 +365,8 @@ class dataHelper():
             return all_triples
 
 
+
+
 class data_reader:
     def __init__(self, config, is_training=True):
         '''
@@ -371,16 +374,59 @@ class data_reader:
         '''
         self.is_training = is_training
         self.config = config
-        self.index = 0
         self.dh = dataHelper(config)
 
+    def read_train_test_data(self, data_path_list, data_source='xml'):
+        '''
+        Reading Raw Dataset from several files
+        Args:
+        data_path_list: a list of raw text files
+        '''
+        print('Reading Dataset....')
+        data_list = []
+        text_word_list = []
+        for data_path in data_path_list:
+            data, text_words = self.dh.read(data_path, data_source, self.is_training)
+            data_list.append(data)
+            text_word_list.extend(text_words)
+        #Build dictionary based on all the words
+        if self.is_training:
+            words = self.dh.build_local_vocab(text_word_list, self.config.embed_num)
+            #Create local embeddings for each word
+            emb = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            _ = self.dh.get_local_word_embeddings(emb, words)
+        #Map words into Ids
+        for i, data in enumerate(data_list):
+            #Get file name
+            name = data_path_list[i]
+            name = os.path.basename(name)
+            data = self.dh.text2ids(data, self.is_training)
+            data_batch = self.dh.to_batches(data)
+            #Save each processed data
+            self.save_data(data_batch, self.config.data_path+name+'.pkl')
+
+        # print('Preprocessing Dataset....')
+        # self.data_batch = self.dh.to_batches(data)
+        # self.data_len = len(self.data_batch)
+        self.UNK_ID = self.dh.UNK_ID
+        self.PAD_ID = self.dh.PAD_ID
+        self.EOS_ID = self.dh.EOS_ID
+        print('Preprocessing Over!')
 
     def read_raw_data(self, data_path, data_source='xml'):
         '''
-        Reading Raw Dataset
+        Reading Raw Dataset from one file
         '''
         print('Reading Dataset....')
-        data = self.dh.read(data_path, data_source, self.is_training)
+        data, text_words = self.dh.read(data_path, data_source, self.is_training)
+        #Build dictionary
+        if self.is_training:
+            words = self.dh.build_local_vocab(text_words, self.config.embed_num)
+            #Create local embeddings
+            emb = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            _ = self.dh.get_local_word_embeddings(emb, words)
+        #Map words into Ids
+        data = self.dh.text2ids(data, self.is_training)
         print('Preprocessing Dataset....')
         self.data_batch = self.dh.to_batches(data)
         self.data_len = len(self.data_batch)
@@ -389,13 +435,13 @@ class data_reader:
         self.EOS_ID = self.dh.EOS_ID
         print('Preprocessing Over!')
 
-    def save_data(self, save_path):
+    def save_data(self, data, save_path):
         '''
         Save the data in specified folder
         '''
         try:
             with open(save_path, "wb") as f:
-                pickle.dump(self.data_batch,f)
+                pickle.dump(data,f)
             print('Saving successfully!')
         except:
             print('Saving failure!')   
@@ -410,7 +456,8 @@ class data_reader:
                 self.data_len = len(self.data_batch)
             self.load_local_dict()
         else:
-            print('Data not exist!')    
+            print('Data not exist!')  
+        return  self.data_batch
 
     def load_local_dict(self):
         '''
@@ -441,6 +488,38 @@ class data_reader:
         except:
             print('Saving failure!')   
     
+
+
+class data_generator:
+    def __init__(self, config, data_batch, is_training=True):
+        '''
+        Generate training and testing samples
+        Args:
+        config: configuration parameters
+        data_batch: data list, each contain a nametuple
+        '''    
+        self.is_training = is_training
+        self.config = config
+        self.index = 0
+        self.data_batch = data_batch
+        self.data_len = len(self.data_batch)
+        self.UNK = "unk"
+        self.EOS = "<eos>"
+        self.PAD = "<pad>"
+        self.load_local_dict()
+
+    def load_local_dict(self):
+        '''
+        Load dictionary files
+        '''
+        if not os.path.exists(config.dic_path):
+            print('Dictionary file not exist!')
+        with open(config.dic_path, 'rb') as f:
+            word2id, _, _ = pickle.load(f)
+        self.UNK_ID = word2id[self.UNK]
+        self.PAD_ID = word2id[self.PAD]
+        self.EOS_ID = word2id[self.EOS]
+
     def generate_sample(self, all_triples):
         '''
         Generate a batch of training dataset
@@ -450,7 +529,6 @@ class data_reader:
         select_trip = [all_triples[i] for i in select_index]
         return select_trip
 
-    
 
     def elmo_transform(self, triples):
         '''
@@ -572,15 +650,15 @@ class data_reader:
         
     
 
-def read_data():
-    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    dr = data_reader(config)
-    dr.read_raw_data(TRAIN_DATA_PATH)
-    dr.split_save_data('data/2014/training.pickle', 'data/2014/valid.pickle')
-    dr.read_raw_data(TEST_DATA_PATH)
-    dr.save_data('data/2014/testing.pickle')
+# def read_data():
+#     TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+#     TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+#     dr = data_reader(config)
+#     dr.read_raw_data(TRAIN_DATA_PATH)
+#     dr.split_save_data('data/2014/training.pickle', 'data/2014/valid.pickle')
+#     dr.read_raw_data(TEST_DATA_PATH)
+#     dr.save_data('data/2014/testing.pickle')
 
 
-if __name__ == "__main__":
-    read_data()
+# if __name__ == "__main__":
+#     read_data()

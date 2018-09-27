@@ -1,7 +1,7 @@
 #!/usr/bin/python
 from __future__ import division
 from model_glove import *
-from data_reader import *
+from data_reader_general import *
 from config import config
 import pickle
 from Layer import GloveMaskCat
@@ -46,41 +46,35 @@ def train():
     best_acc = 0
     best_model = None
 
-    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    #TRAIN_DATA_PATH = "data/Indonesian/indo_tweets.csv"
-
-
+    # TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+    # TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+    # path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
     #First time, need to preprocess and save the data
     #Read XML file
     # dr = data_reader(config)
-    # dr.read_raw_data(TRAIN_DATA_PATH)
-    # dr.split_save_data(config.train_path, config.valid_path)
-    # dr_test = data_reader(config, False)
-    # dr_test.read_raw_data(TEST_DATA_PATH)
-    # dr_test.save_data(config.test_path)
-    # print('Data Preprocessed!')
-
-    #Read CSV  file
-    # dr = data_reader(config)
-    # dr.read_raw_data(TRAIN_DATA_PATH, 'csv')
-    # dr.split_save_data(config.train_path, config.valid_path)
-    # dr_test = data_reader(config, False)
-    # dr_test.read_raw_data(TEST_DATA_PATH)
-    # dr_test.save_data(config.test_path)
+    # dr.read_train_test_data(path_list)
     print('Data Preprocessed!')
 
-    # cat_layer.load_vector()
+
+
+    
 
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    dr.load_data(config.train_path)
-    dr_valid = data_reader(config, False)
-    dr_valid.load_data(config.valid_path)
-    dr_test = dr_valid
-    dr_test = data_reader(config, False)
-    dr_test.load_data(config.test_path)
+    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
+    dg_train = data_generator(config, train_data)
+    dg_test =data_generator(config, test_data, False)
+
+    # dr_valid.load_data(config.valid_path)
+    # dr_test = dr_valid
+    # dr_test = data_reader(config, False)
+    # dr_test.load_data(config.test_path)
+
+    
+
+    cat_layer.load_vector()
 
     #train_batch, test_batch = load_data('data/bailin_data/data.pkl')
     #sent_vecs, mask_vecs, label_list, sent_lens = dr.get_samples()
@@ -97,7 +91,7 @@ def train():
     with open(config.log_path+'log.txt', 'w') as f:
         f.write('Start Experiment\n')
 
-    loops = int(dr.data_len/config.batch_size)
+    loops = int(dg_train.data_len/config.batch_size)
     for e_ in range(config.epoch):
         print("Epoch ", e_ + 1)
         model.train()
@@ -106,30 +100,31 @@ def train():
 
         for _ in np.arange(loops):
             model.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_ids_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_ids_samples())
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
                 sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
                 label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
+
             cls_loss = model(sent_vecs, target_avg, label_list, sent_lens)
             l2_loss = 0
             for w in model.parameters():
                 if w is not None:
                     l2_loss += w.norm(2)
             print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
-            cls_loss += l2_loss * 0.0005
+            cls_loss += l2_loss * 0.005
             cls_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
             optimizer.step()
 
         acc = 0
-        acc = evaluate_test(dr_valid, model)
+        acc = evaluate_test(dg_test, model)
         with open(config.log_path+'log.txt', 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
             f.write('Validation accuracy:'+str(acc)+'\n')
             if e_ % 1 == 0:
                 print('Testing....')
-                acc = evaluate_test(dr_test, model)
+                acc = evaluate_test(dg_test, model)
                 f.write('Testing accuracy:'+str(acc)+'\n')
 
 

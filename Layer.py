@@ -168,7 +168,7 @@ class GloveMaskCat(nn.Module):
             print("Loaded from {} with shape {}".format(self.config.embed_path, vectors.shape))
             #self.word_embed.weight = nn.Parameter(torch.FloatTensor(vectors))
             self.word_embed.weight.data.copy_(torch.from_numpy(vectors))
-            self.word_embed.weight.requires_grad = True
+            self.word_embed.weight.requires_grad = False
     
     def reset_binary(self):
         self.mask_embed.weight.data[0].zero_()

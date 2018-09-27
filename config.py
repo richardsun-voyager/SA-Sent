@@ -25,7 +25,7 @@ class Config():
         self.opt = "Adam"
         self.dropout = 0.4
         self.epoch = 30
-        self.lr = 0.03 / self.batch_size
+        self.lr = 0.05 / self.batch_size
         self.l2 = 0.0
         self.adjust_every = 8
         self.clip_norm = 3
@@ -40,16 +40,15 @@ class Config():
         # self.dic_path = "data/2014/dic.pkl"
 
         #################Restaurant
-        #self.embed_path = "./data/2016/pre-trained-google.pkl"
         self.embed_path = "data/2014/vocab/local_emb.pkl"
         self.pretrained_embed_path = "../data/word_embeddings/glove.6B.300d.txt"
-        self.data_path = "data/2014/data.pkl"
+        self.data_path = "data/2014/"
         self.train_path = "data/2014/train.pkl"
         self.valid_path = "data/2014/valid.pkl"
         self.test_path = "data/2014/test.pkl"
         self.dic_path = "data/2014/vocab/dict.pkl"
         ################Indonesian
-        #record embeddings
+        # #record embeddings
         # self.embed_path = "data/Indonesian/vocab/local_emb.pkl"
         # self.pretrained_embed_path = "../data/word_embeddings/indo_vectors.txt"
         # self.data_path = "data/Indonesian/data.pkl"
