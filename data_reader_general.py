@@ -169,7 +169,7 @@ class dataHelper():
 
     
 
-    def text2ids(self, data, is_training):
+    def text2ids(self, data, word2id, is_training):
         '''
         Map each word into an id in a text
         Args:
@@ -177,13 +177,7 @@ class dataHelper():
         texts: all the text
         '''
         #Build vocab
-        dict_file = config.dic_path
 
-        #The dictionary must be created in advance
-        if not os.path.exists(dict_file):
-            print('Dictionary file not exist!')
-        with open(dict_file, 'rb') as f:
-            word2id, _, _ = pickle.load(f)
 
         def w2id(w):
             try:
@@ -295,7 +289,7 @@ class dataHelper():
                 items = line.split()
                 word_emb[items[0]] = np.array(items[1:], dtype=np.float32)
                 vocab_words.add(items[0])
-        return word_emb
+        return word_emb, vocab_words
 
     def word2vec(self, vocab, word):
         '''
@@ -375,8 +369,11 @@ class data_reader:
         self.is_training = is_training
         self.config = config
         self.dh = dataHelper(config)
+        self.UNK = self.dh.UNK
+        self.EOS = self.dh.EOS
+        self.PAD = self.dh.PAD
 
-    def read_train_test_data(self, data_path_list, data_source='xml'):
+    def read_train_test_data(self, data_path_list, data_source='xml', use_glove=False):
         '''
         Reading Raw Dataset from several files
         Args:
@@ -390,17 +387,33 @@ class data_reader:
             data_list.append(data)
             text_word_list.extend(text_words)
         #Build dictionary based on all the words
-        if self.is_training:
+        if not use_glove:
+            #######################Buld a local vocabulary
+            ## Create embeddings for the words in the given dataset
             words = self.dh.build_local_vocab(text_word_list, self.config.embed_num)
             #Create local embeddings for each word
-            emb = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            dict_file = config.dic_path
+            #The dictionary must be created in advance
+            if not os.path.exists(dict_file):
+                print('Dictionary file not exist!')
+            with open(dict_file, 'rb') as f:
+                word2id, _, _ = pickle.load(f)
+            emb, _ = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
             _ = self.dh.get_local_word_embeddings(emb, words)
+        else:
+            ####################Use Glove vocabulary
+            emb, words = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            #Save word embeddings in binary format
+            _ = self.dh.get_local_word_embeddings(emb, words)
+            #Build dictionary
+            print('Glove Vocabulary Size:', len(words))
+            word2id = {w:i for i, w in enumerate(words)}
         #Map words into Ids
         for i, data in enumerate(data_list):
             #Get file name
             name = data_path_list[i]
             name = os.path.basename(name)
-            data = self.dh.text2ids(data, self.is_training)
+            data = self.dh.text2ids(data, word2id, self.is_training)
             data_batch = self.dh.to_batches(data)
             #Save each processed data
             self.save_data(data_batch, self.config.data_path+name+'.pkl')
@@ -413,20 +426,34 @@ class data_reader:
         self.EOS_ID = self.dh.EOS_ID
         print('Preprocessing Over!')
 
-    def read_raw_data(self, data_path, data_source='xml'):
+    def read_raw_data(self, data_path, data_source='xml', use_glove=False):
         '''
         Reading Raw Dataset from one file
         '''
         print('Reading Dataset....')
         data, text_words = self.dh.read(data_path, data_source, self.is_training)
         #Build dictionary
-        if self.is_training:
+        if not use_glove:
             words = self.dh.build_local_vocab(text_words, self.config.embed_num)
             #Create local embeddings
-            emb = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            emb, _ = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
             _ = self.dh.get_local_word_embeddings(emb, words)
-        #Map words into Ids
-        data = self.dh.text2ids(data, self.is_training)
+            #Map words into Ids
+            dict_file = config.dic_path
+            #The dictionary must be created in advance
+            if not os.path.exists(dict_file):
+                print('Dictionary file not exist!')
+            with open(dict_file, 'rb') as f:
+                word2id, _, _ = pickle.load(f)
+        else:
+            ####################Use Glove vocabulary
+            emb, words = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            #Save word embeddings in binary format
+            _ = self.dh.get_local_word_embeddings(emb, words)
+            #Build dictionary
+            print('Glove Vocabulary Size:', len(words))
+            word2id = {w:i for i, w in enumerate(words)}
+        data = self.dh.text2ids(data, word2id, self.is_training)
         print('Preprocessing Dataset....')
         self.data_batch = self.dh.to_batches(data)
         self.data_len = len(self.data_batch)
@@ -550,6 +577,8 @@ class data_generator:
         for i, mask in enumerate(mask_list):
             mask_vecs[i, :len(mask)] = torch.LongTensor(mask)
         return sent_vecs, mask_vecs, label_list, sent_lens
+
+    
 
     def reset_samples(self):
         self.index = 0

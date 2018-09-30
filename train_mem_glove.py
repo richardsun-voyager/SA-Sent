@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from __future__ import division
-from model_glove import *
+from model_mem_glove import *
 from data_reader_general import *
 from config import config
 import pickle
@@ -46,18 +46,15 @@ def train():
     best_acc = 0
     best_model = None
 
-    # TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    # TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    # path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
+    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+    path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
     #First time, need to preprocess and save the data
     #Read XML file
     # dr = data_reader(config)
     # dr.read_train_test_data(path_list)
-    print('Data Preprocessed!')
+    # print('Data Preprocessed!')
 
-
-
-    
 
 
     #Load preprocessed data directly
@@ -79,7 +76,7 @@ def train():
     #train_batch, test_batch = load_data('data/bailin_data/data.pkl')
     #sent_vecs, mask_vecs, label_list, sent_lens = dr.get_samples()
 
-    model = attTSA(config)
+    model = memTSA(config)
 
 
         # ###Bailin
@@ -118,7 +115,7 @@ def train():
             optimizer.step()
 
         acc = 0
-        acc = evaluate_test(dg_test, model)
+        #acc = evaluate_test(dg_test, model)
         with open(config.log_path+'log.txt', 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
             f.write('Validation accuracy:'+str(acc)+'\n')

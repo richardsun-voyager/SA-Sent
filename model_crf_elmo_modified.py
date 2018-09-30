@@ -1,4 +1,3 @@
-from collections import namedtuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,9 +6,56 @@ from torch.autograd import Variable
 import pdb
 import pickle
 from CRF import LinearCRF
+import torch.nn.init as init
+import pdb
+import pickle
+import numpy as np
 import math
+from torch.nn import utils as nn_utils
 from util import *
-from Layer import MLSTM, SimpleCat
+
+
+def init_ortho(module):
+    for weight_ in module.parameters():
+        if len(weight_.size()) == 2:
+            init.orthogonal_(weight_)
+
+class MLSTM(nn.Module):
+    def __init__(self, config):
+        super(MLSTM, self).__init__()
+        self.config = config
+
+        self.rnn = nn.LSTM(config.embed_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+            bidirectional=True, dropout=config.l_dropout)
+        init_ortho(self.rnn)
+
+    # batch_size * sent_l * dim
+    def forward(self, feats, seq_lengths=None):
+        '''
+        Args:
+        feats: batch_size, max_len, emb_dim
+        seq_lengths: batch_size
+        '''
+        #FIXIT: doesn't have batch
+        #Sort the lengths
+        # seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
+        # feats = feats[perm_idx]
+        #feats = feats.unsqueeze(0)
+        pack = nn_utils.rnn.pack_padded_sequence(feats, 
+                                                 seq_lengths, batch_first=True)
+        
+        
+        #assert self.batch_size == batch_size
+        lstm_out, _ = self.rnn(pack)
+        #lstm_out, (hid_states, cell_states) = self.rnn(feats)
+
+        #Unpack the tensor, get the output for varied-size sentences
+        unpacked, _ = nn_utils.rnn.pad_packed_sequence(lstm_out, batch_first=True)
+
+        #FIXIT: for batch
+        #lstm_out = lstm_out.squeeze(0)
+        # batch * sent_l * 2 * hidden_states 
+        return unpacked
 
 # consits of three components
 class AspectSent(nn.Module):
@@ -20,7 +66,7 @@ class AspectSent(nn.Module):
 
         self.lstm = MLSTM(config)
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
-        self.inter_crf = LinearCRF(config)
+        self.inter_crf = LinearCRF(config)#CRF
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
 
         self.cri = nn.CrossEntropyLoss()
@@ -93,8 +139,6 @@ class AspectSent(nn.Module):
         # label_scores = self.feat2label(sent_v).squeeze(0)
 
         best_seqs = self.inter_crf.predict(tri_scores)
-
-
 
         return label_scores, select_polarity, best_seqs
 

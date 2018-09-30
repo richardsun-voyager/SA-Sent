@@ -36,7 +36,7 @@ def load_data(data_path, if_utf=False):
 id2label = ["positive", "neutral", "negative"]
 
 cat_layer = SimpleCat(config)
-cat_layer.load_vector()
+#cat_layer.load_vector()
 cat_layer.word_embed.weight.requires_grad = False
 
 def train():
@@ -44,67 +44,75 @@ def train():
     best_acc = 0
     best_model = None
 
-    # dr = data_reader(config)
-    # dr.load_data('data/2014/training.pickle')
-    # dr_valid = data_reader(config, False)
-    # dr_valid.load_data('data/2014/valid.pickle')
-    # dr_test = data_reader(config, False)
-    # dr_test.load_data('data/2014/testing.pickle')
-
-
-    ###Indoneisan
     dr = data_reader(config)
     dr.load_data(config.train_path)
     dr_valid = data_reader(config, False)
     dr_valid.load_data(config.valid_path)
-    dr_test = dr_valid
+    dr_test = data_reader(config, False)
+    dr_test.load_data(config.test_path)
+
+
+    ###Indoneisan
+    # dr = data_reader(config)
+    # dr.load_data(config.train_path)
+    # dr_valid = data_reader(config, False)
+    # dr_valid.load_data(config.valid_path)
+    # dr_test = dr_valid
 
     #sent_vecs, mask_vecs, label_list, sent_lens = dr.get_samples()
 
-    model = AspectSent(config)
+    #model = AspectSent(config)
+    model = torch.load('data/models/model.pt')
+    #Save the model
+    acc = evaluate_test(dr_test, model)
+    print("Test acc: ", acc)
+    #Record the result
+    with open(config.log_path+'log.txt', 'a') as f:
+        f.write('Epoch '+str(e_)+'\n')
+        f.write('Test accuracy:'+str(acc)+'\n')
 
 
         # ###Bailin
-    if config.if_gpu: model = model.cuda()
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    # pdb.set_trace()
-    optimizer = create_opt(parameters, config)
+    # if config.if_gpu: model = model.cuda()
+    # parameters = filter(lambda p: p.requires_grad, model.parameters())
+    # # pdb.set_trace()
+    # optimizer = create_opt(parameters, config)
 
-    with open(config.log_path+'log.txt', 'w') as f:
-        f.write('Start Experiment\n')
+    # with open(config.log_path+'log.txt', 'w') as f:
+    #     f.write('Start Experiment\n')
 
 
-    loops = int(dr.data_len/config.batch_size)
-    for e_ in range(config.epoch):
-        print("Epoch ", e_ + 1)
-        model.train()
-        if e_ % config.adjust_every == 0:  
-            adjust_learning_rate(optimizer, e_)
+    # loops = int(dr.data_len/config.batch_size)
+    # for e_ in range(config.epoch):
+    #     print("Epoch ", e_ + 1)
+    #     model.train()
+    #     if e_ % config.adjust_every == 0:  
+    #         adjust_learning_rate(optimizer, e_)
 
-        for _ in np.arange(loops):
-            model.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_ids_samples())
-            sent_vecs = cat_layer(sent_vecs, mask_vecs, False)
-            if config.if_gpu: 
-                sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
-                label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
-            cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
-            cls_loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
-            optimizer.step()
+    #     for _ in np.arange(loops):
+    #         model.zero_grad() 
+    #         sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_elmo_samples())
+    #         sent_vecs = cat_layer(sent_vecs, mask_vecs)
+    #         if config.if_gpu: 
+    #             sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
+    #             label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
+    #         cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
+    #         cls_loss.backward()
+    #         torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
+    #         optimizer.step()
 
-        #Save the model
-        acc = evaluate_test(dr_test, model)
-        print("Test acc: ", acc)
-        #Record the result
-        with open(config.log_path+'log.txt', 'a') as f:
-            f.write('Epoch '+str(e_)+'\n')
-            f.write('Test accuracy:'+str(acc)+'\n')
+    #     #Save the model
+    #     acc = evaluate_test(dr_test, model)
+    #     print("Test acc: ", acc)
+    #     #Record the result
+    #     with open(config.log_path+'log.txt', 'a') as f:
+    #         f.write('Epoch '+str(e_)+'\n')
+    #         f.write('Test accuracy:'+str(acc)+'\n')
 
-        if acc > best_acc: 
-            best_acc = acc
-            best_model = copy.deepcopy(model)
-            torch.save(best_model, config.model_path+'model.pt')
+    #     if acc > best_acc: 
+    #         best_acc = acc
+    #         best_model = copy.deepcopy(model)
+    #         torch.save(best_model, config.model_path+'model.pt')
 
 
 
@@ -129,8 +137,8 @@ def evaluate_test(dr_test, model):
     correct_count = 0
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len = next(dr_test.get_ids_samples())
-        sent = cat_layer(sent, mask, False)
+        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
+        sent = cat_layer(sent, mask)
         if config.if_gpu: 
             sent, mask = sent.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()

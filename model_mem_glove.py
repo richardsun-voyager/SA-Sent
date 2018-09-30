@@ -54,9 +54,13 @@ class MLSTM(nn.Module):
         return unpacked
 
 # consits of three components
-class attTSA(nn.Module):
+#
+class memTSA(nn.Module):
     def __init__(self, config):
-        super(attTSA, self).__init__()
+        super(memTSA, self).__init__()
+        '''
+        Memory Model
+        '''
         self.config = config
 
         self.lstm = MLSTM(config)
@@ -89,23 +93,27 @@ class attTSA(nn.Module):
         #The output for the padding tokens is zeros.
         context = self.lstm(sent, lens)#Batch_size*sent_len*hidden_dim
 
-        ############################################
-        ##Multiplication Attention
-        #Compute the attention for each token in the sentence. multiplication attention
-        target_vec = target_vec.unsqueeze(2)#Batch_size*hidden_dim*1
-        scores = torch.bmm(context, target_vec)#Batch_size*sent_len*1
+        for _ in range(3):
+            #Multi hop
+            ############################################
+            ##Multiplication Attention
+            #Compute the attention for each token in the sentence. multiplication attention
+            # target_vec = target_vec.unsqueeze(2)#Batch_size*hidden_dim*1
+            # scores = torch.bmm(context, target_vec)#Batch_size*sent_len*1
+            # scores = F.tanh(scores)
 
-        #############################################
-        ###Addition Attention
-        #Expand the dimension, batch_size*sent_len*hidden_dim
-        # target_vec = target_vec.expand(sent_len, batch_size, self.config.l_hidden_size).transpose(0, 1)
-        # #dimension, batch_size*sent_len*(2hidden_dim)
-        # context_target_vec = torch.cat([context, target_vec], 2)
-        # scores = self.concatvec_linear(context_target_vec)#Batch_size*sent_len*1
-
-        attentions = F.softmax(scores, 1).transpose(1, 2)#Batch_size*1*sent_len
-        sents_vec = torch.bmm(attentions, context).squeeze(1)#Batch_size*hidden_dim
-        
+            #############################################
+            ###Addition Attention
+            #Expand the dimension, batch_size*sent_len*hidden_dim
+            target_vec = target_vec.expand(sent_len, batch_size, self.config.l_hidden_size).transpose(0, 1)
+            #dimension, batch_size*sent_len*(2hidden_dim)
+            context_target_vec = torch.cat([context, target_vec], 2)
+            scores = self.concatvec_linear(context_target_vec)#Batch_size*sent_len*1
+            scores = F.tanh(scores)
+            attentions = F.softmax(scores, 1).transpose(1, 2)#Batch_size*1*sent_len
+            sents_vec = torch.bmm(attentions, context).squeeze(1)#Batch_size*hidden_dim
+            #Make the output sent vector as the next hop's target vector
+            target_vec = sents_vec
         #Dropout
         if self.training:
             sents_vec = self.dropout(sents_vec)

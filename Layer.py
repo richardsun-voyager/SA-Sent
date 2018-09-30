@@ -95,7 +95,7 @@ class SimpleCat(nn.Module):
             sent_vec = self.word_embed(sent)# batch_siz*sent_len * dim
             
         mask_vec = self.mask_embed(mask) # batch_size*max_len* dim
-        print(mask_vec.size())
+        #print(mask_vec.size())
 
         #sent_vec = self.dropout(sent_vec)
         #Concatenation
@@ -160,6 +160,70 @@ class GloveMaskCat(nn.Module):
 
         # for test
         return sent_vec, target_emb_avg
+
+    def load_vector(self):
+        with open(self.config.embed_path, 'rb') as f:
+            #vectors = pickle.load(f, encoding='bytes')
+            vectors = pickle.load(f)
+            print("Loaded from {} with shape {}".format(self.config.embed_path, vectors.shape))
+            #self.word_embed.weight = nn.Parameter(torch.FloatTensor(vectors))
+            self.word_embed.weight.data.copy_(torch.from_numpy(vectors))
+            self.word_embed.weight.requires_grad = False
+    
+    def reset_binary(self):
+        self.mask_embed.weight.data[0].zero_()
+
+
+# input layer for 14
+class ContextTargetCat(nn.Module):
+    def __init__(self, config):
+        super(ContextTargetCat, self).__init__()
+        '''
+        This class is to concatenate the context and target embeddings
+        '''
+        self.config = config
+        self.word_embed = nn.Embedding(config.embed_num, config.embed_dim)
+        self.mask_embed = nn.Embedding(2, config.mask_dim)
+
+        self.dropout = nn.Dropout(config.dropout)
+
+    # input are tensors
+    def forward(self, sent, mask):
+        '''
+        Args:
+        sent: tensor, shape(batch_size, max_len, dim) elmo
+        mask: tensor, shape(batch_size, max_len)
+        '''
+        #Modified by Richard Sun
+        #Use ELmo embedding, note we need padding
+
+        #Use GloVe embedding
+        if self.config.if_gpu:  
+            sent, mask = sent.cuda(), mask.cuda()
+        # # to embeddings
+        # sent_vec = self.word_embed(sent) # batch_siz*sent_len * dim
+        #Concatenate each word embedding with target word embeddings' average
+        batch_size, max_len, _ = sent.size()
+        sent_vec = sent
+        #Repeat the mask
+        mask = mask.type_as(sent_vec)
+        mask = mask.expand(self.config.embed_dim, batch_size, max_len)
+        mask = mask.transpose(0, 1).transpose(1, 2)#The same size as sentence vector
+        target_emb = sent_vec * mask
+        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(mask, 1)#Batch_size*embedding
+        #Expand dimension for concatenation
+        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, self.config.embed_dim)
+        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+
+
+        sent_vec = (sent_vec + target_emb_avg_exp)/2
+
+        #sent_vec = self.dropout(sent_vec)
+        #Concatenation
+        #sent_target_concat = torch.cat([sent_vec, target_emb_avg_exp], 2)
+
+        # for test
+        return sent_vec
 
     def load_vector(self):
         with open(self.config.embed_path, 'rb') as f:

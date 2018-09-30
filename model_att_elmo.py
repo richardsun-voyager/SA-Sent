@@ -73,7 +73,7 @@ class attTSA(nn.Module):
         '''
         inputs are list of list for the convenince of top CRF
         Args:
-        sent: a list of sentences， batch_size*len*emb_dim
+        sent: a list of sentences， batch_size*len*emb_dim, elmo
         mask: a list of mask for each sentence, batch_size*len
         label: a list labels
         '''
