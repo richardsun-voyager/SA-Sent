@@ -534,6 +534,13 @@ class data_generator:
         self.EOS = "<eos>"
         self.PAD = "<pad>"
         self.load_local_dict()
+        
+    def remove_empty_target(self, data_batch):
+        '''
+        Remove items without targets
+        '''
+        data_batch = [item for item in data_batch if sum(item[1])>0]
+        return data_batch
 
     def load_local_dict(self):
         '''

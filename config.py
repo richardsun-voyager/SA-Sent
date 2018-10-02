@@ -19,13 +19,13 @@ class Config():
 
         # penlaty
         self.C1 = 0.1
-        self.C2 = 0
+        self.C2 = 0.005
         self.if_reset = True
 
         self.opt = "Adam"
-        self.dropout = 0.2
+        self.dropout = 0.5
         self.epoch = 30
-        self.lr = 0.008 / self.batch_size
+        self.lr = 0.05/ self.batch_size
         self.l2 = 0.0
         self.adjust_every = 8
         self.clip_norm = 3

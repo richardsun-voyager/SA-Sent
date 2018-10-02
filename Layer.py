@@ -127,7 +127,7 @@ class GloveMaskCat(nn.Module):
         self.dropout = nn.Dropout(config.dropout)
 
     # input are tensors
-    def forward(self, sent, mask):
+    def forward(self, sent, mask, is_avg=True):
         '''
         Args:
         sent: tensor, shape(batch_size, max_len)
@@ -152,14 +152,17 @@ class GloveMaskCat(nn.Module):
         #Expand dimension for concatenation
         target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, self.config.embed_dim)
         target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
-
+        if is_avg:
+            target = target_emb_avg
+        else:
+            target = target_emb
 
         #sent_vec = self.dropout(sent_vec)
         #Concatenation
         #sent_target_concat = torch.cat([sent_vec, target_emb_avg_exp], 2)
 
         # for test
-        return sent_vec, target_emb_avg
+        return sent_vec, target
 
     def load_vector(self):
         with open(self.config.embed_path, 'rb') as f:
@@ -168,7 +171,7 @@ class GloveMaskCat(nn.Module):
             print("Loaded from {} with shape {}".format(self.config.embed_path, vectors.shape))
             #self.word_embed.weight = nn.Parameter(torch.FloatTensor(vectors))
             self.word_embed.weight.data.copy_(torch.from_numpy(vectors))
-            self.word_embed.weight.requires_grad = False
+            self.word_embed.weight.requires_grad = self.config.if_update_embed
     
     def reset_binary(self):
         self.mask_embed.weight.data[0].zero_()

@@ -59,10 +59,17 @@ class attTSA(nn.Module):
         super(attTSA, self).__init__()
         self.config = config
 
+        #Add lstm layer
         self.lstm = biLSTM(config)
-        self.target2vec = nn.Linear(config.embed_dim, config.l_hidden_size)
-        self.vec2label = nn.Linear(config.l_hidden_size, 3)
-        self.concatvec_linear = nn.Linear(2*config.l_hidden_size, 1)
+        # self.target2vec = nn.Linear(config.embed_dim, config.l_hidden_size)
+        # self.vec2label = nn.Linear(config.l_hidden_size, 3)
+        # self.concatvec_linear = nn.Linear(2*config.l_hidden_size, 1)
+
+        #No lstm layer
+        self.target2vec = nn.Linear(config.embed_dim, config.embed_dim)
+        self.vec2label = nn.Linear(config.embed_dim, 3)
+        self.concatvec_linear = nn.Linear(2*config.embed_dim, 1)
+        self.tanh = nn.Tanh()
 
         self.cri = nn.CrossEntropyLoss()
         #Modified by Richard Sun
@@ -89,13 +96,20 @@ class attTSA(nn.Module):
         #target = torch.mean(sent * mask, 1)#Batch_size*emb_dim
         target_sum = (sent * mask).sum(1)#Batch_size*emb_dim
         target_count = target_count.expand(dim, batch_size).transpose(0,1)
-        target = torch.div(target_sum, target_count)#average embedding
+        target = torch.div(target_sum, target_count)#average embedding, batch_size*elmo_dim
+        
 
-        #reduce dimension
-        target_vec = self.target2vec(target)#Batch_size*hidden_dim
+
+        #reduce dimension after LSTM layer
+        #target_vec = self.target2vec(target)#Batch_size*hidden_dim
         #Get the context embeddings for sentences
         #The output for the padding tokens is zeros.
-        context = self.lstm(sent, lens)#Batch_size*sent_len*hidden_dim
+        #context = self.lstm(sent, lens)#Batch_size*sent_len*hidden_dim
+
+        #No addition LSTM layer
+        target_vec = target
+        context = sent
+
 
         ############################################
         ##Multiplication Attention
@@ -106,10 +120,11 @@ class attTSA(nn.Module):
         #############################################
         ###Addition Attention
         #Expand the dimension, batch_size*sent_len*hidden_dim
-        target_vec = target_vec.expand(sent_len, batch_size, self.config.l_hidden_size).transpose(0, 1)
+        target_vec = target_vec.expand(sent_len, batch_size, self.config.embed_dim).transpose(0, 1)
         #dimension, batch_size*sent_len*(2hidden_dim)
         context_target_vec = torch.cat([context, target_vec], 2)
         scores = self.concatvec_linear(context_target_vec)#Batch_size*sent_len*1
+        scores = self.tanh(scores)#Activation
 
         attentions = F.softmax(scores, 1).transpose(1, 2)#Batch_size*1*sent_len
         sents_vec = torch.bmm(attentions, context).squeeze(1)#Batch_size*hidden_dim
