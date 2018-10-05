@@ -60,6 +60,9 @@ class MLSTM(nn.Module):
 # consits of three components
 class AspectSent(nn.Module):
     def __init__(self, config):
+        '''
+        Elmo+LSTM+Aspect
+        '''
         super(AspectSent, self).__init__()
         self.config = config
         #self.cat_layer = SimpleCat(config)

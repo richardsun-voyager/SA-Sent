@@ -46,9 +46,11 @@ def train():
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    train_data = dr.load_data(config.data_path +'Restaurants_Train_v2.xml.pkl')
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
+    valid_data = dr.load_data(config.data_path+'valid_restaurant.pkl')
     dg_train = data_generator(config, train_data)
+    dg_valid = data_generator(config, valid_data, False)
     dg_test =data_generator(config, test_data, False)
 
     model = AspectSent(config)
@@ -85,17 +87,20 @@ def train():
             optimizer.step()
 
         #Save the model
-        acc = evaluate_test(dg_test, model)
-        print("Test acc: ", acc)
+        acc = evaluate_test(dg_valid, model)
+        print("Validation acc: ", acc)
         #Record the result
         with open(config.log_path+'log.txt', 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
-            f.write('Test accuracy:'+str(acc)+'\n')
+            f.write('Validation accuracy:'+str(acc)+'\n')
+            if e_%1 == 0:
+                acc = evaluate_test(dg_test, model)
+                f.write('Test accuracy:'+str(acc)+'\n')
 
         if acc > best_acc: 
             best_acc = acc
             best_model = copy.deepcopy(model)
-            torch.save(best_model, config.model_path+'model.pt')
+            torch.save(best_model, config.model_path+'crf_elmo_model.pt')
 
 
 

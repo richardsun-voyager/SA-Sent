@@ -8,24 +8,25 @@ class Config():
         #Map words to lower case
         self.embed_num = 4334
         #For elmo the emb_size is 1024
-        self.embed_dim = 300#1024#300
+        self.embed_dim = 1024#1024#300
         self.mask_dim = 50
         self.if_update_embed = False
 
         # lstm
-        self.l_hidden_size = 256
+        #self.l_hidden_size = 256
+        self.l_hidden_size = 512#elmo
         self.l_num_layers = 2 # forward and backward
         self.l_dropout = 0.1
 
         # penlaty
         self.C1 = 0.1
-        self.C2 = 0.005
+        self.C2 = 0.001
         self.if_reset = True
 
         self.opt = "Adam"
         self.dropout = 0.5
         self.epoch = 30
-        self.lr = 0.05/ self.batch_size
+        self.lr = 0.001/ self.batch_size
         self.l2 = 0.0
         self.adjust_every = 8
         self.clip_norm = 3

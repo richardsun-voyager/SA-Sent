@@ -65,6 +65,13 @@ class AspectSent(nn.Module):
         #self.cat_layer = SimpleCat(config)
 
         self.lstm = MLSTM(config)
+        # #with lstm layer
+        # self.feat2tri = nn.Linear(config.l_hidden_size, 2)
+        # self.inter_crf = LinearCRF(config)#CRF
+        # self.feat2label = nn.Linear(config.l_hidden_size, 3)
+
+        #WIthout lstm layer
+        self.elmo2lower = nn.Linear(config.embed_dim+config.mask_dim, config.l_hidden_size)
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
         self.inter_crf = LinearCRF(config)#CRF
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
@@ -79,16 +86,10 @@ class AspectSent(nn.Module):
     
     def compute_scores(self, sent, mask, lens):
         #if self.config.if_reset:  self.cat_layer.reset_binary()
-        # self.inter_crf.reset_transition()
 
-        #sent = torch.LongTensor(sent)
-        #sent = sent
-        #Batch_size
-        #sent_vec = self.cat_layer(sent, mask)
-        #print('After concatenation:', sent_vec.size())
-        sent_vec = sent
+        context = self.elmo2lower(sent)
 
-        context = self.lstm(sent_vec, lens)#Batch_size*sent_len*hidden_dim
+        #context = self.lstm(sent_vec, lens)#Batch_size*sent_len*hidden_dim
         #print('After lstm:', context.size())
 
         # feat_context = torch.cat([context, asp_v], 1) # sent_len * dim_sum
@@ -108,15 +109,10 @@ class AspectSent(nn.Module):
 
     def compute_predict_scores(self, sent, mask, lens):
         #if self.config.if_reset:  self.cat_layer.reset_binary()
-        # self.inter_crf.reset_transition()
 
-        #sent = torch.LongTensor(sent)
-        #mask = torch.LongTensor(mask)
-        #1*word_len*emb_dim
-        #sent_vec = self.cat_layer(sent, mask)
-        sent_vec = sent
+        context = self.elmo2lower(sent)
 
-        context = self.lstm(sent_vec, lens)
+        #context = self.lstm(sent_vec, lens)
         #Modified by Richard Sun
         # feat_context = torch.cat([context, asp_v], 1) # sent_len * dim_sum
         feat_context = context  # batch_size*sent_len * hidden_dim
@@ -155,6 +151,7 @@ class AspectSent(nn.Module):
         #scores: batch_size*label_size
         #s_prob:batch_size*sent_len
         #marginal_prob:batch_size*2 * sent_len
+        sent = F.dropout(sent, p=0.3, training=self.train)#Dropout
         scores, s_prob, marginal_prob = self.compute_scores(sent, mask, lens)
 
 

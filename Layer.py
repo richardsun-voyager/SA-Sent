@@ -191,7 +191,7 @@ class ContextTargetCat(nn.Module):
         self.dropout = nn.Dropout(config.dropout)
 
     # input are tensors
-    def forward(self, sent, mask):
+    def forward(self, sent, mask, is_concat=True):
         '''
         Args:
         sent: tensor, shape(batch_size, max_len, dim) elmo
@@ -200,33 +200,36 @@ class ContextTargetCat(nn.Module):
         #Modified by Richard Sun
         #Use ELmo embedding, note we need padding
 
-        #Use GloVe embedding
+
         if self.config.if_gpu:  
             sent, mask = sent.cuda(), mask.cuda()
         # # to embeddings
-        # sent_vec = self.word_embed(sent) # batch_siz*sent_len * dim
-        #Concatenate each word embedding with target word embeddings' average
+        
         batch_size, max_len, _ = sent.size()
         sent_vec = sent
-        #Repeat the mask
-        mask = mask.type_as(sent_vec)
-        mask = mask.expand(self.config.embed_dim, batch_size, max_len)
-        mask = mask.transpose(0, 1).transpose(1, 2)#The same size as sentence vector
-        target_emb = sent_vec * mask
-        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(mask, 1)#Batch_size*embedding
-        #Expand dimension for concatenation
-        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, self.config.embed_dim)
-        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+        if is_concat:
+            ## concatenate each word embedding with mask embedding
+            mask_emb = self.mask_embed(mask)
+            sent_target_concat = torch.cat([sent_vec, mask_emb], 2)
+            sent_target = sent_target_concat
+        else:#Add each word embedding with target word embeddings' average
+            #Repeat the mask
+            mask = mask.type_as(sent_vec)
+            mask = mask.expand(self.config.embed_dim, batch_size, max_len)
+            mask = mask.transpose(0, 1).transpose(1, 2)#The same size as sentence vector
+            target_emb = sent_vec * mask
+            target_emb_avg = torch.sum(target_emb, 1)/torch.sum(mask, 1)#Batch_size*embedding
+            #Expand dimension for concatenation
+            target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, self.config.embed_dim)
+            target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+            sent_target = (sent_vec + target_emb_avg_exp)/2
 
 
-        sent_vec = (sent_vec + target_emb_avg_exp)/2
-
+        
         #sent_vec = self.dropout(sent_vec)
-        #Concatenation
-        #sent_target_concat = torch.cat([sent_vec, target_emb_avg_exp], 2)
 
         # for test
-        return sent_vec
+        return sent_target
 
     def load_vector(self):
         with open(self.config.embed_path, 'rb') as f:

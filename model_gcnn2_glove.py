@@ -5,6 +5,9 @@ from config import config
 from torch.nn import utils as nn_utils
 class CNN_Gate_Aspect_Text(nn.Module):
     def __init__(self, config):
+        '''
+        In this model, both context words and target words are processed by gated CNN
+        '''
         super(CNN_Gate_Aspect_Text, self).__init__()
         self.config = config
         
@@ -34,7 +37,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
     
     def compute_score(self, sent, target, lens):
         '''
-        inputs are list of list for the convenince of top CRF
+        gated cnn, note even the aspect words are processed by CNNs
         Args:
         sent: a list of sentences， batch_size*max_len*(2*emb_dim)
         target: a list of target embedding for each sentence, batch_size*len*emb_dim

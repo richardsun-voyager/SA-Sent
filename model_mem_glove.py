@@ -59,7 +59,7 @@ class memTSA(nn.Module):
     def __init__(self, config):
         super(memTSA, self).__init__()
         '''
-        Memory Model
+        Multihop Memory Model
         '''
         self.config = config
 
