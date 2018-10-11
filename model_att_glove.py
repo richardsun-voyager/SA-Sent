@@ -114,14 +114,14 @@ class attTSA(nn.Module):
         output = self.vec2label(sents_vec)#Bach_size*label_size
 
         scores = F.log_softmax(output, dim=1)#Batch_size*label_size
-        return scores
+        return scores, attentions
 
    
     def forward(self, sent, target, label, lens):
         #Sent emb_dim + 50
         
         sent = F.dropout(sent, p=0.2, training=self.training)
-        scores = self.compute_score(sent, target, lens)
+        scores, _ = self.compute_score(sent, target, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
         cls_loss = loss(scores, label)
@@ -131,11 +131,11 @@ class attTSA(nn.Module):
 
     def predict(self, sent, target, sent_len):
         #sent = self.cat_layer(sent, mask)
-        scores = self.compute_score(sent, target, sent_len)
+        scores, attentions = self.compute_score(sent, target, sent_len)
         _, pred_label = scores.max(1)#Find the max label in the 2nd dimension
         
         #Modified by Richard Sun
-        return pred_label
+        return pred_label, attentions
 
 
 # # consits of three components

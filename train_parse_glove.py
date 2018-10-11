@@ -1,7 +1,8 @@
 #!/usr/bin/python
 from __future__ import division
-from model_att_glove import *
+from model_parse_glove import *
 from data_reader_general import *
+from parse_path import constituency_path
 from config import config
 import pickle
 from Layer import GloveMaskCat
@@ -34,11 +35,43 @@ def load_data(data_path, if_utf=False):
     return obj
 
 
-
 id2word = load_data('data/bailin_data/dic.pkl')
 id2label = ["positive", "neutral", "negative"]
 #Load concatenation layer and attention model layer
 cat_layer = GloveMaskCat(config)
+cp = constituency_path()
+def convert_mask_index(masks):
+    '''
+    Find the indice of none zeros values in masks, namely the target indice
+    '''
+    target_indice = []
+    for mask in masks:
+        indice = torch.nonzero(mask == 1).squeeze(1).numpy()
+        target_indice.append(indice)
+    return target_indice
+
+def get_context_weight(tokens, targets):
+    max_len = max(map(len, tokens))
+    weights = np.zeros([len(tokens), max_len])
+    for i, token in enumerate(tokens):
+        #print('Original word num')
+        #print(len(token))
+        text = ' '.join(token)#Connect them into a string
+        try:
+            new_tokens = cp.build_parser(text).leaves()
+            #print(len(new_tokens))
+            if len(token) != len(new_tokens):
+                print(text)
+        except:
+            print('Parsing error')
+            print(text)
+        try:
+            max_w, min_w, a_v = cp.proceed(text, targets[i])
+            weights[i, :len(max_w)] = max_w
+        except:
+            print('text process error')
+            print(text, targets[i])
+    return torch.FloatTensor(weights)
 
 
 def train():
@@ -53,7 +86,10 @@ def train():
     #Read XML file
     # dr = data_reader(config)
     # dr.read_train_test_data(path_list)
-    print('Data Preprocessed!')
+    # print('Data Preprocessed!')
+    # dr = data_reader(config)
+    # train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    # dr.split_save_data(config.train_path, config.valid_path)
 
 
 
@@ -61,7 +97,7 @@ def train():
     dr = data_reader(config)
     train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
-    valid_data = dr.load_data(config.data_path+'valid_restaurant.pkl')
+    valid_data = dr.load_data(config.data_path+'valid.pkl')
     dg_train = data_generator(config, train_data)
     dg_valid = data_generator(config, valid_data, False)
     dg_test =data_generator(config, test_data, False)
@@ -76,19 +112,22 @@ def train():
     cat_layer.load_vector()
 
     #train_batch, test_batch = load_data('data/bailin_data/data.pkl')
+
+    # cp = constituency_path()
+    # max_w, min_w, a_v = cp.proceed('The screen is good, but the battery is bad!', [1])
+    # print(max_w)
+    # print(min_w)
+    # print(a_v)
  
-    model_file = config.model_path+'model.pt'
-    if os.path.exists(model_file):
-        model = torch.load(model_file)
-        visualize_attention(dg_valid, model)
-        sys.exit()
+    # model_file = config.model_path+'model.pt'
+    # if os.path.exists(model_file):
+    #     model = torch.load(model_file)
+    #     visualize_attention(dg_valid, model)
+    #     sys.exit()
 
-    model = attTSA(config)
+    model = depTSA(config)
 
-    
-
-
-        # ###Bailin
+    # ###Bailin
     if config.if_gpu: model = model.cuda()
     parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
     # pdb.set_trace()
@@ -106,13 +145,15 @@ def train():
 
         for _ in np.arange(loops):
             model.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens, _ = next(dg_train.get_ids_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dg_train.get_ids_samples())
+            target_indice = convert_mask_index(mask_vecs)#Get target indice
+            weights = get_context_weight(tokens, target_indice)#Get weights for each sentence
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
                 sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
                 label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
 
-            cls_loss = model(sent_vecs, target_avg, label_list, sent_lens)
+            cls_loss = model(sent_vecs, weights, label_list, sent_lens)
             l2_loss = 0
             for w in model.parameters():
                 if w is not None:
@@ -225,14 +266,17 @@ def evaluate_test(dr_test, model):
     all_counter = 0
     correct_count = 0
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, _ = next(dr_test.get_ids_samples())
-        sent, target = cat_layer(sent, mask)
+        sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dr_test.get_ids_samples())
+        target_indice = convert_mask_index(mask_vecs)#Get target indice
+        weights = get_context_weight(tokens, target_indice)#Get weights for each sentence
+        sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
         if config.if_gpu: 
-            sent, target = sent.cuda(), target.cuda()
-            label, sent_len = label.cuda(), sent_len.cuda()
-        pred_label, _  = model.predict(sent, target, sent_len) 
+            sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
+            label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
 
-        correct_count += sum(pred_label==label).item()
+        pred_label, _  = model.predict(sent_vecs, weights, sent_lens) 
+
+        correct_count += sum(pred_label==label_list).item()
     if dr_test.data_len < 1:
         print('Testing Data Error')
     acc = correct_count * 1.0 / dr_test.data_len

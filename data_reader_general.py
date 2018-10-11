@@ -112,6 +112,7 @@ class dataHelper():
         sent_str = " ".join(sent_str.split("!"))
         #For indonesian
         sent_str = " ".join(sent_str.split("@"))
+        sent_str = " ".join(sent_str.split())
         sent = nlp(sent_str)
         return [item.text.lower() for item in sent]
         
@@ -433,7 +434,7 @@ class data_reader:
         print('Reading Dataset....')
         data, text_words = self.dh.read(data_path, data_source, self.is_training)
         #Build dictionary
-        if not use_glove:
+        if not use_glove:#Use glove directly, quite large, to be cautious
             words = self.dh.build_local_vocab(text_words, self.config.embed_num)
             #Create local embeddings
             emb, _ = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
@@ -590,7 +591,7 @@ class data_generator:
     def reset_samples(self):
         self.index = 0
 
-    def pad_data(self, sents, masks, labels):
+    def pad_data(self, sents, masks, labels, tokens):
         '''
         Padding sentences to same size
         '''
@@ -613,7 +614,8 @@ class data_generator:
         sent_vecs = sent_vecs[perm_idx]
         mask_vecs = mask_vecs[perm_idx]
         label_list = label_list[perm_idx]
-        return sent_vecs, mask_vecs, label_list, sent_lens
+        tokens = [tokens[i.item()] for i in perm_idx]
+        return sent_vecs, mask_vecs, label_list, sent_lens, tokens
 
     def get_ids_samples(self):
         '''
@@ -621,8 +623,9 @@ class data_generator:
         '''
         if self.is_training:
             samples = self.generate_sample(self.data_batch)
-            _, mask_list, label_list, token_ids = zip(*samples)
-            sent_vecs, mask_vecs, label_list, sent_lens = self.pad_data(token_ids,mask_list, label_list)
+            tokens, mask_list, label_list, token_ids = zip(*samples)
+            #Sorted according to the length
+            sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids,mask_list, label_list, tokens)
         else:
             if self.index == self.data_len:
                 print('Testing Over!')
@@ -633,19 +636,15 @@ class data_generator:
                 end = start + config.batch_size
                 samples = self.data_batch[start: end]
                 self.index += config.batch_size
-                _, mask_list, label_list, token_ids = zip(*samples)
-                sent_vecs, mask_vecs, label_list, sent_lens = self.pad_data(token_ids,mask_list, label_list)
-                #Sort the lengths, and change orders accordingly
-                sent_lens, perm_idx = sent_lens.sort(0, descending=True)
-                sent_vecs = sent_vecs[perm_idx]
-                mask_vecs = mask_vecs[perm_idx]
-                label_list = label_list[perm_idx]
+                tokens, mask_list, label_list, token_ids = zip(*samples)
+                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
+
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index] 
-                _, mask_list, label_list, token_ids = zip(*[samples])
-                sent_vecs, mask_vecs, label_list, sent_lens = self.pad_data(token_ids,mask_list, label_list)
+                tokens, mask_list, label_list, token_ids = zip(*[samples])
+                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
                 self.index += 1
-        yield sent_vecs, mask_vecs, label_list, sent_lens
+        yield sent_vecs, mask_vecs, label_list, sent_lens, tokens
 
     def get_elmo_samples(self):
         '''
