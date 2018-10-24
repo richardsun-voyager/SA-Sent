@@ -2,11 +2,10 @@
 #This file aims to preprocess data and generate samples for training and testing
 from collections import namedtuple, defaultdict
 import codecs
-from config import config
+#from config import config
 from bs4 import BeautifulSoup
 import pdb
 import torch
-#import tokenizer
 import numpy as np
 import re
 import pickle
@@ -17,6 +16,9 @@ from collections import Counter
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import en_core_web_sm
 nlp = en_core_web_sm.load()
+
+# from stanfordcorenlp import StanfordCoreNLP
+# nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
 
 options_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 weight_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
@@ -113,8 +115,9 @@ class dataHelper():
         #For indonesian
         sent_str = " ".join(sent_str.split("@"))
         sent_str = " ".join(sent_str.split())
-        sent = nlp(sent_str)
-        return [item.text.lower() for item in sent]
+        # sent = nlp(sent_str)
+        # return [item.text.lower() for item in sent]
+        return nlp.word_tokenize(sent_str)
         
     # namedtuple is protected!
     def process_raw_data(self, data, is_training=True):
@@ -243,7 +246,7 @@ class dataHelper():
         id2word = {i:w for i, w in enumerate(words)}
 
         #Save the dictionary
-        dict_file = config.dic_path
+        dict_file = self.config.dic_path
         dict_path = os.path.dirname(dict_file)  
         if not os.path.exists(dict_path):
             print('Dictionary path doesnot exist')
@@ -263,11 +266,11 @@ class dataHelper():
         local_emb = []
         #if the unknow vectors were not given, initialize one
         if self.UNK not in pretrained_word_emb.keys():
-            pretrained_word_emb[self.UNK] = np.random.randn(config.embed_dim)
+            pretrained_word_emb[self.UNK] = np.random.randn(self.config.embed_dim)
         for w in local_vocab:
             local_emb.append(self.word2vec(pretrained_word_emb, w))
         local_emb = np.vstack(local_emb)
-        emb_path = config.embed_path
+        emb_path = self.config.embed_path
         if not os.path.exists(os.path.dirname(emb_path)):
             print('Path not exists')
             os.mkdir(os.path.dirname(emb_path))
@@ -393,17 +396,17 @@ class data_reader:
             ## Create embeddings for the words in the given dataset
             words = self.dh.build_local_vocab(text_word_list, self.config.embed_num)
             #Create local embeddings for each word
-            dict_file = config.dic_path
+            dict_file = self.config.dic_path
             #The dictionary must be created in advance
             if not os.path.exists(dict_file):
                 print('Dictionary file not exist!')
             with open(dict_file, 'rb') as f:
                 word2id, _, _ = pickle.load(f)
-            emb, _ = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            emb, _ = self.dh.load_pretrained_word_emb(self.config.pretrained_embed_path)
             _ = self.dh.get_local_word_embeddings(emb, words)
         else:
             ####################Use Glove vocabulary
-            emb, words = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            emb, words = self.dh.load_pretrained_word_emb(self.config.pretrained_embed_path)
             #Save word embeddings in binary format
             _ = self.dh.get_local_word_embeddings(emb, words)
             #Build dictionary
@@ -437,10 +440,10 @@ class data_reader:
         if not use_glove:#Use glove directly, quite large, to be cautious
             words = self.dh.build_local_vocab(text_words, self.config.embed_num)
             #Create local embeddings
-            emb, _ = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            emb, _ = self.dh.load_pretrained_word_emb(self.config.pretrained_embed_path)
             _ = self.dh.get_local_word_embeddings(emb, words)
             #Map words into Ids
-            dict_file = config.dic_path
+            dict_file = self.config.dic_path
             #The dictionary must be created in advance
             if not os.path.exists(dict_file):
                 print('Dictionary file not exist!')
@@ -448,7 +451,7 @@ class data_reader:
                 word2id, _, _ = pickle.load(f)
         else:
             ####################Use Glove vocabulary
-            emb, words = self.dh.load_pretrained_word_emb(config.pretrained_embed_path)
+            emb, words = self.dh.load_pretrained_word_emb(self.config.pretrained_embed_path)
             #Save word embeddings in binary format
             _ = self.dh.get_local_word_embeddings(emb, words)
             #Build dictionary
@@ -491,9 +494,9 @@ class data_reader:
         '''
         Load dictionary files
         '''
-        if not os.path.exists(config.dic_path):
+        if not os.path.exists(self.config.dic_path):
             print('Dictionary file not exist!')
-        with open(config.dic_path, 'rb') as f:
+        with open(self.config.dic_path, 'rb') as f:
             word2id, _, _ = pickle.load(f)
         self.UNK_ID = word2id[self.dh.UNK]
         self.PAD_ID = word2id[self.dh.PAD]
@@ -547,9 +550,9 @@ class data_generator:
         '''
         Load dictionary files
         '''
-        if not os.path.exists(config.dic_path):
+        if not os.path.exists(self.config.dic_path):
             print('Dictionary file not exist!')
-        with open(config.dic_path, 'rb') as f:
+        with open(self.config.dic_path, 'rb') as f:
             word2id, _, _ = pickle.load(f)
         self.UNK_ID = word2id[self.UNK]
         self.PAD_ID = word2id[self.PAD]
@@ -563,6 +566,24 @@ class data_generator:
         select_index = np.random.choice(len(all_triples), batch_size)
         select_trip = [all_triples[i] for i in select_index]
         return select_trip
+
+    def generate_balanced_sample(self, all_triples):
+        '''
+        Generate balanced training data set 
+        rate: list, i.e., [0.6, 0.2, 0.2]
+        '''
+        batch_size = self.config.batch_size
+        #labels must be number in order to sort
+        labels = [item[2] for item in all_triples]
+        unique_label, count_label = np.unique(labels, return_counts=True)
+        rate = 1.0/count_label
+        p = [rate[item[2]] for item in all_triples]
+        p = p/sum(p)
+        select_index = np.random.choice(len(all_triples), batch_size, p=p)
+        select_trip = [all_triples[i] for i in select_index]
+        return select_trip
+
+
 
 
     def elmo_transform(self, triples):
@@ -617,12 +638,15 @@ class data_generator:
         tokens = [tokens[i.item()] for i in perm_idx]
         return sent_vecs, mask_vecs, label_list, sent_lens, tokens
 
-    def get_ids_samples(self):
+    def get_ids_samples(self, is_balanced=False):
         '''
         Get samples including ids of words, labels
         '''
         if self.is_training:
-            samples = self.generate_sample(self.data_batch)
+            if is_balanced:
+                samples = self.generate_balanced_sample(self.data_batch)
+            else:
+                samples = self.generate_sample(self.data_batch)
             tokens, mask_list, label_list, token_ids = zip(*samples)
             #Sorted according to the length
             sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids,mask_list, label_list, tokens)
@@ -630,13 +654,14 @@ class data_generator:
             if self.index == self.data_len:
                 print('Testing Over!')
             #First get batches of testing data
-            if self.data_len - self.index >= config.batch_size:
+            if self.data_len - self.index >= self.config.batch_size:
                 #print('Testing Sample Index:', self.index)
                 start = self.index
-                end = start + config.batch_size
+                end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
-                self.index += config.batch_size
+                self.index += self.config.batch_size
                 tokens, mask_list, label_list, token_ids = zip(*samples)
+                #Sorting happens here
                 sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
 
             else:#Then generate testing data one by one
@@ -664,12 +689,12 @@ class data_generator:
             if self.index == self.data_len:
                 print('Testing Over!')
             #First get batches of testing data
-            if self.data_len - self.index >= config.batch_size:
+            if self.data_len - self.index >= self.config.batch_size:
                 #print('Testing Sample Index:', self.index)
                 start = self.index
-                end = start + config.batch_size
+                end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
-                self.index += config.batch_size
+                self.index += self.config.batch_size
                 sent_vecs, mask_vecs, label_list, sent_lens = self.elmo_transform(samples)
                 #Sort the lengths, and change orders accordingly
                 sent_lens, perm_idx = sent_lens.sort(0, descending=True)

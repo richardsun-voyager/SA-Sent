@@ -1,88 +1,88 @@
 import networkx as nx
 from nltk.tree import Tree
-from stanfordcorenlp import StanfordCoreNLP
 import numpy as np
-stfnlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
-# import spacy
-# spanlp = spacy.load('en')
+# from stanfordcorenlp import StanfordCoreNLP
+# stfnlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
+import spacy
+spanlp = spacy.load('en')
 
-# class dependency_path:
-#     def __init__(self, text):
-#         self.text = text
+class dependency_path:
+    def __init__(self, text):
+        self.text = text
 
-#     def build_graph(self, text):
-#         '''
-#         Build a graph based on dependency parsing
-#         '''
-#         document = spanlp(text)
-#         edges = []
-#         for token in document:
-#             # FYI https://spacy.io/docs/api/token
-#             for child in token.children:
-#                 edges.append(('{0}-{1}'.format(token.lower_,token.i),
-#                             '{0}-{1}'.format(child.lower_,child.i)))
+    def build_graph(self, text):
+        '''
+        Build a graph based on dependency parsing
+        '''
+        document = spanlp(text)
+        edges = []
+        for token in document:
+            # FYI https://spacy.io/docs/api/token
+            for child in token.children:
+                edges.append(('{0}-{1}'.format(token.lower_,token.i),
+                            '{0}-{1}'.format(child.lower_,child.i)))
 
-#         graph = nx.Graph(edges)
-#         return graph
+        graph = nx.Graph(edges)
+        return graph
 
-#     def get_shortest_path_len(self, graph, node1, node2):
-#         '''
-#         Compute the path between two nodes
-#         '''
-#         return nx.shortest_path_length(graph, source=node1, target=node2)
+    def get_shortest_path_len(self, graph, node1, node2):
+        '''
+        Compute the path between two nodes
+        '''
+        return nx.shortest_path_length(graph, source=node1, target=node2)
 
-#     def compute_node_distance(self, graph):
-#         '''
-#         Compute the path for each node pair
-#         '''
-#         nodes = list(graph.nodes())
-#         node_order = [int(node.split('-')[1]) for node in nodes]
-#         #Sort the words according to the original order
-#         indice = node_order.argsort()
-#         nodes = [nodes[i] for i in indice]
-#         node_num = len(nodes)
-#         mat = np.zeros([node_num, node_num])
-#         #Calculate the path for each node pair
-#         for i in np.arange(node_num-1):
-#             for j in np.arange(i+1, node_num):
-#                 mat[i, j] = self.get_shortest_path_len(graph, nodes[i], nodes[j])
-#                 mat[j, i] = mat[i, j]
+    def compute_node_distance(self, graph):
+        '''
+        Compute the path for each node pair
+        '''
+        nodes = list(graph.nodes())
+        node_order = [int(node.split('-')[1]) for node in nodes]
+        #Sort the words according to the original order
+        indice = node_order.argsort()
+        nodes = [nodes[i] for i in indice]
+        node_num = len(nodes)
+        mat = np.zeros([node_num, node_num])
+        #Calculate the path for each node pair
+        for i in np.arange(node_num-1):
+            for j in np.arange(i+1, node_num):
+                mat[i, j] = self.get_shortest_path_len(graph, nodes[i], nodes[j])
+                mat[j, i] = mat[i, j]
         
-#         # mat_sum = mat.sum(1)
-#         #normalization
-#         # for i in np.arange(node_num):
-#         #     if mat_sum[i] == 0:
-#         #         print('Path sum zero')
-#         #     mat[i, :] /= mat_sum[i]
-#         return mat
+        # mat_sum = mat.sum(1)
+        #normalization
+        # for i in np.arange(node_num):
+        #     if mat_sum[i] == 0:
+        #         print('Path sum zero')
+        #     mat[i, :] /= mat_sum[i]
+        return mat
 
-#     def compute_soft_targets_weights(self, mat, target_nodes):
-#         '''
-#         compute the normalized path values for the targets
-#         mat: matrix, [node_num, node_num]
-#         target_nodes: [nodes], index of the target words
-#         '''
-#         target_weights = np.zeros([len(target_nodes), len(mat)])
-#         for i, node in enumerate(target_nodes):
-#             target_weights[i] = np.exp(-mat[node]**2/max(mat[node]))
-#         max_target_weight = target_weights.max(1)
-#         min_target_weight = target_weights.min(1)
-#         avg_target_weight = target_weights.mean(1)
-#         return max_target_weight, min_target_weight, avg_target_weight
+    def compute_soft_targets_weights(self, mat, target_nodes):
+        '''
+        compute the normalized path values for the targets
+        mat: matrix, [node_num, node_num]
+        target_nodes: [nodes], index of the target words
+        '''
+        target_weights = np.zeros([len(target_nodes), len(mat)])
+        for i, node in enumerate(target_nodes):
+            target_weights[i] = np.exp(-mat[node]**2/max(mat[node]))
+        max_target_weight = target_weights.max(1)
+        min_target_weight = target_weights.min(1)
+        avg_target_weight = target_weights.mean(1)
+        return max_target_weight, min_target_weight, avg_target_weight
 
-#     def compute_hard_targets_weights(self, mat, target_nodes):
-#         '''
-#         compute the normalized path values for the targets
-#         mat: matrix, [node_num, node_num]
-#         target_nodes: [nodes], index of the target words
-#         '''
-#         target_weights = np.zeros([len(target_nodes), len(mat)])
-#         for i, node in enumerate(target_nodes):
-#             target_weights[i] = np.where(mat[node]<5, 1, 0)
-#         max_target_weight = target_weights.max(1)
-#         min_target_weight = target_weights.min(1)
-#         avg_target_weight = target_weights.mean(1)
-#         return max_target_weight, min_target_weight, avg_target_weight
+    def compute_hard_targets_weights(self, mat, target_nodes):
+        '''
+        compute the normalized path values for the targets
+        mat: matrix, [node_num, node_num]
+        target_nodes: [nodes], index of the target words
+        '''
+        target_weights = np.zeros([len(target_nodes), len(mat)])
+        for i, node in enumerate(target_nodes):
+            target_weights[i] = np.where(mat[node]<5, 1, 0)
+        max_target_weight = target_weights.max(1)
+        min_target_weight = target_weights.min(1)
+        avg_target_weight = target_weights.mean(1)
+        return max_target_weight, min_target_weight, avg_target_weight
 
 
 class constituency_path:

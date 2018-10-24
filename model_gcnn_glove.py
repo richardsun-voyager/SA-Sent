@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import config
 from torch.nn import utils as nn_utils
 class CNN_Gate_Aspect_Text(nn.Module):
     def __init__(self, config):
@@ -72,7 +71,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
     def forward(self, sent, target, label, lens):
         #Sent emb_dim + 50
         
-        sent = F.dropout(sent, p=0.4, training=self.training)
+        sent = F.dropout(sent, p=0.2, training=self.training)
         scores = self.compute_score(sent, target, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])

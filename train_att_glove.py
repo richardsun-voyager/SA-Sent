@@ -2,7 +2,7 @@
 from __future__ import division
 from model_att_glove import *
 from data_reader_general import *
-from config import config
+from configs.config_att import config
 import pickle
 from Layer import GloveMaskCat
 import numpy as np
