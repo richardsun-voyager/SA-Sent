@@ -36,7 +36,7 @@ class dependency_path:
         Compute the path for each node pair
         '''
         nodes = list(graph.nodes())
-        node_order = [int(node.split('-')[1]) for node in nodes]
+        node_order = np.array([int(node.split('-')[1]) for node in nodes])
         #Sort the words according to the original order
         indice = node_order.argsort()
         nodes = [nodes[i] for i in indice]
@@ -65,9 +65,9 @@ class dependency_path:
         target_weights = np.zeros([len(target_nodes), len(mat)])
         for i, node in enumerate(target_nodes):
             target_weights[i] = np.exp(-mat[node]**2/max(mat[node]))
-        max_target_weight = target_weights.max(1)
-        min_target_weight = target_weights.min(1)
-        avg_target_weight = target_weights.mean(1)
+        max_target_weight = target_weights.max(0)
+        min_target_weight = target_weights.min(0)
+        avg_target_weight = target_weights.mean(0)
         return max_target_weight, min_target_weight, avg_target_weight
 
     def compute_hard_targets_weights(self, mat, target_nodes):
