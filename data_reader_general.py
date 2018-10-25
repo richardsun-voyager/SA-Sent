@@ -115,9 +115,9 @@ class dataHelper():
         #For indonesian
         sent_str = " ".join(sent_str.split("@"))
         sent_str = " ".join(sent_str.split())
-        # sent = nlp(sent_str)
-        # return [item.text.lower() for item in sent]
-        return nlp.word_tokenize(sent_str)
+        sent = nlp(sent_str)
+        return [item.text.lower() for item in sent]
+        #return nlp.word_tokenize(sent_str)
         
     # namedtuple is protected!
     def process_raw_data(self, data, is_training=True):
@@ -288,11 +288,19 @@ class dataHelper():
         '''
         word_emb = {}
         vocab_words = set()
+#         with open(file_path) as fi:
+#             for line in fi:
+#                 items = line.split()
+#                 word_emb[items[0]] = np.array(items[1:], dtype=np.float32)
+#                 vocab_words.add(items[0])
+#         return word_emb, vocab_words
         with open(file_path) as fi:
             for line in fi:
                 items = line.split()
-                word_emb[items[0]] = np.array(items[1:], dtype=np.float32)
-                vocab_words.add(items[0])
+                word = ' '.join(items[:-1*self.config.embed_dim])
+                vec = items[-1*self.config.embed_dim:]
+                word_emb[word] = np.array(vec, dtype=np.float32)
+                vocab_words.add(word)
         return word_emb, vocab_words
 
     def word2vec(self, vocab, word):
@@ -488,6 +496,7 @@ class data_reader:
             self.load_local_dict()
         else:
             print('Data not exist!')  
+            return None
         return  self.data_batch
 
     def load_local_dict(self):

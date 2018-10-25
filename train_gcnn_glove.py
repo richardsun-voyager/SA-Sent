@@ -46,15 +46,19 @@ def train():
     best_acc = 0
     best_model = None
 
-    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
-    #First time, need to preprocess and save the data
-    #Read XML file
-    # dr = data_reader(config)
-    # dr.read_train_test_data(path_list)
-    # print('Data Preprocessed!')
-
+#     TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+#     TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+#     path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
+#     #First time, need to preprocess and save the data
+#     #Read XML file
+#     dr = data_reader(config)
+#     dr.read_train_test_data(path_list)
+#     print('Data Preprocessed!')
+    
+#     dr = data_reader(config)
+#     dr.load_data('data/restaurant/Restaurants_Train_v2.xml.pkl')
+#     dr.split_save_data(config.train_path, config.valid_path)
+#     print('Splitting finished')
 
 
     #Load preprocessed data directly
@@ -103,7 +107,7 @@ def train():
 
         for _ in np.arange(loops):
             optimizer.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens, _ = next(dg_train.get_ids_samples(is_balanced=True))
+            sent_vecs, mask_vecs, label_list, sent_lens, _ = next(dg_train.get_ids_samples(True))
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
 
             if config.if_gpu: 
@@ -185,7 +189,7 @@ def evaluate_test(dr_test, model):
     true_labels = []
     pred_labels = []
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, _ = next(dr_test.get_ids_samples())
+        sent, mask, label, sent_len, tokens = next(dr_test.get_ids_samples())
         sent, target = cat_layer(sent, mask)
         if config.if_gpu: 
             sent, target = sent.cuda(), target.cuda()
@@ -193,14 +197,42 @@ def evaluate_test(dr_test, model):
         pred_label  = model.predict(sent, target, sent_len) 
         true_labels.extend(label.numpy())
         pred_labels.extend(pred_label.numpy())
-
+        #Count number of correct predictions
         correct_count += sum(pred_label==label).item()
+        record_mislabeled_samples(pred_label, label, tokens, mask)
     if dr_test.data_len < 1:
         print('Testing Data Error')
     acc = correct_count * 1.0 / dr_test.data_len
     print(confusion_matrix(true_labels, pred_labels))
     print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
+
+def record_mislabeled_samples(pred, label, tokens, mask):
+    file_path = 'data/mislabeled_samples/records.txt'
+    if not os.path.exists(file_path):
+        with open(file_path, 'w') as f:
+            f.write('GCNN Model:\n')
+#     print(pred)
+#     print(label)
+    indice = torch.nonzero(pred - label)
+    if indice.nelement() > 0:
+        indice = indice.squeeze(1)
+        record_tokens = [tokens[i] for i in indice.numpy()]
+        record_mask = mask[indice]
+        record_pred = pred[indice]
+        record_label = label[indice]
+        target_indice = [torch.nonzero(item).squeeze(1).numpy() for item in record_mask]
+
+        for i, tokens in enumerate(record_tokens):
+            targets = [record_tokens[i][t] for t in target_indice[i]]
+            targets = ' '.join(targets)
+            with open(file_path, 'a') as f:
+                f.write(targets + ' True label:' + str(record_label[i]) + ' Pred Label:'+str(record_pred[i]))
+                f.write('\n')
+                f.write(' '.join(tokens))
+                f.write('\n')
+                f.write('*********************\n')
+    
 
 if __name__ == "__main__":
     train()

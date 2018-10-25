@@ -2,7 +2,7 @@
 from __future__ import division
 from model_gcnn2_glove import *
 from data_reader_general import *
-from config import config
+from configs.config_gcnn2 import config
 from torch import optim
 import pickle
 from Layer import GloveMaskCat
@@ -10,7 +10,7 @@ import numpy as np
 import codecs
 import copy
 import os
-
+torch.manual_seed(222)
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (1.5 ** (epoch // config.adjust_every))
     print("Adjust lr to ", lr)
@@ -36,7 +36,6 @@ def load_data(data_path, if_utf=False):
 
 
 
-id2word = load_data('data/bailin_data/dic.pkl')
 id2label = ["positive", "neutral", "negative"]
 #Load concatenation layer and attention model layer
 cat_layer = GloveMaskCat(config)
@@ -55,24 +54,27 @@ def train():
     # dr = data_reader(config)
     # dr.read_train_test_data(path_list)
     # print('Data Preprocessed!')
+    
+#     dr = data_reader(config)
+#     dr.load_data('data/restaurant/Restaurants_Train_v2.xml.pkl')
+#     dr.split_save_data(config.train_path, config.valid_path)
+#     print('Splitting finished')
+#     print('*******************************')
 
 
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
-
-    # train_path = config.data_path + 'train_restaurant.pkl'
-    valid_path = config.data_path + 'valid_restaurant.pkl'
-    # train_data = dr.load_data(train_path)
-    valid_data = dr.load_data(valid_path)
-    #Split training data into training and validating parts
-    #dr.split_save_data(train_path, valid_path)
-    #print('Split successfullly')
+    train_data = dr.load_data(config.train_path)
+    valid_data = dr.load_data(config.valid_path)
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
+    print('Training Samples:', len(train_data))
+    print('Validating Samples:', len(valid_data))
+    print('Testing Samples:', len(test_data))
+
     dg_train = data_generator(config, train_data)
-    dg_valid = data_generator(config, valid_data, False)
-    dg_test = data_generator(config, test_data, False)
+    dg_valid =data_generator(config, valid_data, False)
+    dg_test =data_generator(config, test_data, False)
 
     # dr_valid.load_data(config.valid_path)
     # dr_test = dr_valid
@@ -95,7 +97,7 @@ def train():
     # pdb.set_trace()
     optimizer = create_opt(parameters, config)
 
-    with open(config.log_path+'log.txt', 'w') as f:
+    with open(config.log_path+'gcnn2_log.txt', 'w') as f:
         f.write('Start Experiment\n')
 
     loops = int(dg_train.data_len/config.batch_size)
@@ -107,7 +109,7 @@ def train():
 
         for _ in np.arange(loops):
             optimizer.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_ids_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens, _ = next(dg_train.get_ids_samples(True))
             #Note here we do not use average target embeddings
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs, False)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
@@ -125,17 +127,20 @@ def train():
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
             optimizer.step()
 
-        acc = 0
-        acc = evaluate_test(dg_valid, model)
-        with open(config.log_path+'log.txt', 'a') as f:
+        valid_acc = 0
+        valid_acc = evaluate_test(dg_valid, model)
+        with open(config.log_path+'gcnn2_log.txt', 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
-            f.write('Validation accuracy:'+str(acc)+'\n')
+            f.write('Validation accuracy:'+str(valid_acc)+'\n')
             if e_ % 1 == 0:
                 print('Testing....')
-                acc = evaluate_test(dg_test, model)
-                f.write('Testing accuracy:'+str(acc)+'\n')
+                test_acc = evaluate_test(dg_test, model)
+                f.write('Testing accuracy:'+str(test_acc)+'\n')
 
-
+        if valid_acc > best_acc: 
+            best_acc = valid_acc
+            best_model = copy.deepcopy(model)
+            torch.save(best_model, config.model_path+'gcnn2_model.pt')
 
 
 
@@ -153,29 +158,6 @@ def visualize(sent, mask, best_seq, pred_label, gold):
     print("Predict: {0}, Gold: {1}".format(id2label[pred_label], id2label[gold]))
     print("")
 
-# def evaluate_test(test_batch, model):
-#     print("Evaluting")
-#     model.eval()
-#     all_counter = 0
-#     correct_count = 0
-#     for triple_list in test_batch:
-#         model.zero_grad() 
-#         if len(triple_list) == 0: 
-#             continue
-#         ##Modified by Richard Sun
-#         sent, mask, label = triple_list
-#         all_counter += len(sent)
-
-#         #print('Preprocessing...')
-#         sent_vecs, mask_vecs, label_list, sent_lens = pad_data([sent], [mask], [label])
-#         #print(sent_vecs.size())
-#         pred_label = model.predict(sent_vecs, mask_vecs, sent_lens)
-
-#         correct_count += sum(pred_label==label_list).item()
-            
-#     acc = correct_count * 1.0 / len(test_batch)
-#     print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
-#     return acc
 
 def evaluate_test(dr_test, model):
     print("Evaluting")
@@ -184,7 +166,7 @@ def evaluate_test(dr_test, model):
     all_counter = 0
     correct_count = 0
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len = next(dr_test.get_ids_samples())
+        sent, mask, label, sent_len, _ = next(dr_test.get_ids_samples())
         sent, target = cat_layer(sent, mask, False)#not using average target embeddings
         if config.if_gpu: 
             sent, target = sent.cuda(), target.cuda()

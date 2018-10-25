@@ -9,7 +9,7 @@ import numpy as np
 import codecs
 import copy
 import os, sys
-
+torch.manul_seed(111)
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (1.5 ** (epoch // config.adjust_every))
     print("Adjust lr to ", lr)
@@ -35,7 +35,7 @@ def load_data(data_path, if_utf=False):
 
 
 
-id2word = load_data('data/bailin_data/dic.pkl')
+#id2word = load_data('data/bailin_data/dic.pkl')
 id2label = ["positive", "neutral", "negative"]
 #Load concatenation layer and attention model layer
 cat_layer = GloveMaskCat(config)
@@ -59,17 +59,16 @@ def train():
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    train_data = dr.load_data(config.train_path)
+    valid_data = dr.load_data(config.valid_path)
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
-    valid_data = dr.load_data(config.data_path+'valid_restaurant.pkl')
-    dg_train = data_generator(config, train_data)
-    dg_valid = data_generator(config, valid_data, False)
-    dg_test =data_generator(config, test_data, False)
+    print('Training Samples:', len(train_data))
+    print('Validating Samples:', len(valid_data))
+    print('Testing Samples:', len(test_data))
 
-    # dr_valid.load_data(config.valid_path)
-    # dr_test = dr_valid
-    # dr_test = data_reader(config, False)
-    # dr_test.load_data(config.test_path)
+    dg_train = data_generator(config, train_data)
+    dg_valid =data_generator(config, valid_data, False)
+    dg_test =data_generator(config, test_data, False)
 
     
 
@@ -94,7 +93,8 @@ def train():
     # pdb.set_trace()
     optimizer = create_opt(parameters, config)
 
-    with open(config.log_path+'log.txt', 'w') as f:
+    log_file = 'att_log.txt'
+    with open(config.log_path+log_file, 'w') as f:
         f.write('Start Experiment\n')
 
     loops = int(dg_train.data_len/config.batch_size)
@@ -127,8 +127,8 @@ def train():
         if acc > best_acc: 
             best_acc = acc
             best_model = copy.deepcopy(model)
-            torch.save(best_model, config.model_path+'model.pt')
-        with open(config.log_path+'log.txt', 'a') as f:
+            torch.save(best_model, config.model_path+'att_model.pt')
+        with open(config.log_path+log_file, 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
             f.write('Validation accuracy:'+str(acc)+'\n')
             if e_ % 1 == 0:
