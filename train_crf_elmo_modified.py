@@ -2,7 +2,7 @@
 from __future__ import division
 from model_crf_elmo_modified import *
 from data_reader_general import data_reader, data_generator
-from config import config
+from configs.config_crf_elmo import config
 import pickle
 import numpy as np
 import codecs
@@ -46,11 +46,15 @@ def train():
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    train_data = dr.load_data(config.data_path +'Restaurants_Train_v2.xml.pkl')
+    train_data = dr.load_data(config.train_path)
+    valid_data = dr.load_data(config.valid_path)
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
-    valid_data = dr.load_data(config.data_path+'valid_restaurant.pkl')
+    print('Training Samples:', len(train_data))
+    print('Validating Samples:', len(valid_data))
+    print('Testing Samples:', len(test_data))
+
     dg_train = data_generator(config, train_data)
-    dg_valid = data_generator(config, valid_data, False)
+    dg_valid =data_generator(config, valid_data, False)
     dg_test =data_generator(config, test_data, False)
 
     model = AspectSent(config)
@@ -63,7 +67,7 @@ def train():
     # pdb.set_trace()
     optimizer = create_opt(parameters, config)
 
-    with open(config.log_path+'log.txt', 'w') as f:
+    with open(config.log_path+'crf_elmo_log.txt', 'w') as f:
         f.write('Start Experiment\n')
 
 
@@ -87,15 +91,15 @@ def train():
             optimizer.step()
 
         #Save the model
-        acc = evaluate_test(dg_valid, model)
-        print("Validation acc: ", acc)
+        valid_acc = evaluate_test(dg_valid, model)
+        print("Validation acc: ", valid_acc)
         #Record the result
-        with open(config.log_path+'log.txt', 'a') as f:
+        with open(config.log_path+'crf_elmo_log.txt', 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
-            f.write('Validation accuracy:'+str(acc)+'\n')
+            f.write('Validation accuracy:'+str(valid_acc)+'\n')
             if e_%1 == 0:
-                acc = evaluate_test(dg_test, model)
-                f.write('Test accuracy:'+str(acc)+'\n')
+                test_acc = evaluate_test(dg_test, model)
+                f.write('Test accuracy:'+str(test_acc)+'\n')
 
         if acc > best_acc: 
             best_acc = acc
@@ -139,20 +143,6 @@ def evaluate_test(dr_test, model):
     print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
-# def evaluate_dev(dev_batch, model):
-#     print("Evaluting")
-#     model.eval()
-#     all_counter = 0
-#     correct_count = 0
-#     for triple_list in dev_batch:
-#         for sent, mask, label in triple_list:
-#             pred_label, best_seq = model.predict(sent, mask) 
-
-#             all_counter += 1
-#             if pred_label == label:  correct_count += 1
-#     acc = correct_count * 1.0 / all_counter
-#     print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
-#     return acc
 
 if __name__ == "__main__":
     train()
