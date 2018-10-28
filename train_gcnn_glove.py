@@ -11,6 +11,8 @@ import codecs
 import copy
 import os
 from sklearn.metrics import confusion_matrix
+torch.manual_seed(222)
+
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (1.5 ** (epoch // config.adjust_every))
     print("Adjust lr to ", lr)

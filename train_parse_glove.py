@@ -2,8 +2,8 @@
 from __future__ import division
 from model_parse_glove import *
 from data_reader_general import *
-from parse_path import constituency_path
-from config import config
+from parse_path import dependency_path
+from configs.config_parse import config
 import pickle
 from Layer import GloveMaskCat
 import numpy as np
@@ -35,11 +35,11 @@ def load_data(data_path, if_utf=False):
     return obj
 
 
-id2word = load_data('data/bailin_data/dic.pkl')
+#id2word = load_data('data/bailin_data/dic.pkl')
 id2label = ["positive", "neutral", "negative"]
 #Load concatenation layer and attention model layer
 cat_layer = GloveMaskCat(config)
-cp = constituency_path()
+dp = dependency_path()
 def convert_mask_index(masks):
     '''
     Find the indice of none zeros values in masks, namely the target indice
@@ -50,28 +50,60 @@ def convert_mask_index(masks):
         target_indice.append(indice)
     return target_indice
 
-def get_context_weight(tokens, targets):
-    max_len = max(map(len, tokens))
+def get_dependency_weight(tokens, targets, max_len):
+    '''
+    tokens: texts
+    max_len: max length of texts
+    '''
     weights = np.zeros([len(tokens), max_len])
     for i, token in enumerate(tokens):
         #print('Original word num')
         #print(len(token))
         text = ' '.join(token)#Connect them into a string
+        #document = spanlp(text.replace(" '", "'"))
+        text = text.replace(" '", "'")
         try:
-            new_tokens = cp.build_parser(text).leaves()
+            graph = dp.build_graph(text)
+            mat = dp.compute_node_distance(graph)
             #print(len(new_tokens))
-            if len(token) != len(new_tokens):
+            if len(token) != len(mat):
+                print('Word number conflicts!')
                 print(text)
         except:
-            print('Parsing error')
+            print('Error!!!!!!!!!!!!!!!!!!')
             print(text)
+
         try:
-            max_w, min_w, a_v = cp.proceed(text, targets[i])
+            max_w, _, _ = dp.compute_soft_targets_weights(mat, targets[i])
             weights[i, :len(max_w)] = max_w
         except:
             print('text process error')
             print(text, targets[i])
+            break
     return torch.FloatTensor(weights)
+
+# def get_context_weight(tokens, targets):
+#     max_len = max(map(len, tokens))
+#     weights = np.zeros([len(tokens), max_len])
+#     for i, token in enumerate(tokens):
+#         #print('Original word num')
+#         #print(len(token))
+#         text = ' '.join(token)#Connect them into a string
+#         try:
+#             new_tokens = cp.build_parser(text).leaves()
+#             #print(len(new_tokens))
+#             if len(token) != len(new_tokens):
+#                 print(text)
+#         except:
+#             print('Parsing error')
+#             print(text)
+#         try:
+#             max_w, min_w, a_v = cp.proceed(text, targets[i])
+#             weights[i, :len(max_w)] = max_w
+#         except:
+#             print('text process error')
+#             print(text, targets[i])
+#     return torch.FloatTensor(weights)
 
 
 def train():
@@ -95,11 +127,15 @@ def train():
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    train_data = dr.load_data(config.train_path)
+    valid_data = dr.load_data(config.valid_path)
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
-    valid_data = dr.load_data(config.data_path+'valid.pkl')
+    print('Training Samples:', len(train_data))
+    print('Validating Samples:', len(valid_data))
+    print('Testing Samples:', len(test_data))
+
     dg_train = data_generator(config, train_data)
-    dg_valid = data_generator(config, valid_data, False)
+    dg_valid =data_generator(config, valid_data, False)
     dg_test =data_generator(config, test_data, False)
 
     # dr_valid.load_data(config.valid_path)
@@ -111,19 +147,6 @@ def train():
 
     cat_layer.load_vector()
 
-    #train_batch, test_batch = load_data('data/bailin_data/data.pkl')
-
-    # cp = constituency_path()
-    # max_w, min_w, a_v = cp.proceed('The screen is good, but the battery is bad!', [1])
-    # print(max_w)
-    # print(min_w)
-    # print(a_v)
- 
-    # model_file = config.model_path+'model.pt'
-    # if os.path.exists(model_file):
-    #     model = torch.load(model_file)
-    #     visualize_attention(dg_valid, model)
-    #     sys.exit()
 
     model = depTSA(config)
 
@@ -133,7 +156,7 @@ def train():
     # pdb.set_trace()
     optimizer = create_opt(parameters, config)
 
-    with open(config.log_path+'log.txt', 'w') as f:
+    with open(config.log_path+'parse_log.txt', 'w') as f:
         f.write('Start Experiment\n')
 
     loops = int(dg_train.data_len/config.batch_size)
@@ -147,7 +170,8 @@ def train():
             model.zero_grad() 
             sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dg_train.get_ids_samples())
             target_indice = convert_mask_index(mask_vecs)#Get target indice
-            weights = get_context_weight(tokens, target_indice)#Get weights for each sentence
+            max_len = max(sent_lens).item()
+            weights = get_dependency_weight(tokens, target_indice, max_len)#Get weights for each sentence
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
                 sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
@@ -168,8 +192,8 @@ def train():
         if acc > best_acc: 
             best_acc = acc
             best_model = copy.deepcopy(model)
-            torch.save(best_model, config.model_path+'model.pt')
-        with open(config.log_path+'log.txt', 'a') as f:
+            torch.save(best_model, config.model_path+'parse_model.pt')
+        with open(config.log_path+'parse_log.txt', 'a') as f:
             f.write('Epoch '+str(e_)+'\n')
             f.write('Validation accuracy:'+str(acc)+'\n')
             if e_ % 1 == 0:
@@ -177,68 +201,7 @@ def train():
                 acc = evaluate_test(dg_test, model)
                 f.write('Testing accuracy:'+str(acc)+'\n')
 
-
-
-        ################Below are for Bailin's data
-        # for i, triple_list in enumerate(train_batch):
-        #     model.zero_grad() 
-        #     if len(triple_list) == 0: 
-        #         continue
-        #     ##Modified by Richard Sun
-        #     sent, mask, label = zip(*triple_list)
-
-        #     #print('Preprocessing...')
-        #     sent_vecs, mask_vecs, label_list, sent_lens = pad_data(sent, mask, label)
-
-        #     cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
-        #     l2_loss = 0
-        #     for w in parameters:
-        #         l2_loss += torch.norm(w)
-        #     if i %30 == 0:
-        #         print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
-        #     cls_loss += l2_loss * 0.001
-        #     cls_loss.backward()
-        #     torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
-        #     optimizer.step()
-
-                #Save the model
-        # acc = 0
-        #print('Validating....')
-        #acc = evaluate_test(dr_valid, model)
-        #Record the result
-        
-        # with open(config.log_path+'log.txt', 'a') as f:
-        #     f.write('Epoch '+str(e_)+'\n')
-        #     f.write('Validation accuracy:'+str(acc)+'\n')
-        #     if e_ % 2 == 0:
-        #         print('Testing....')
-        #         acc = evaluate_test(dr_test, model)
-        #         f.write('Testing accuracy:'+str(acc)+'\n')
-
-        # for _ in np.arange(loops):
-        #     model.zero_grad() 
-        #     sent_vecs, mask_vecs, label_list, sent_lens = next(dr.get_samples())
-        #     if config.if_gpu: 
-        #         sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
-        #         label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
-        #     cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
-        #     cls_loss.backward()
-        #     torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
-        #     optimizer.step()
-
-        # #Save the model
-        # acc = evaluate_test(dr_test, model)
-        # print("Test acc: ", acc)
-        # #Record the result
-        # with open(config.log_path+'log.txt', 'a') as f:
-        #     f.write('Epoch '+str(e_)+'\n')
-        #     f.write('Test accuracy:'+str(acc)+'\n')
-
-
-
-
-
-
+    
 
 def visualize_attention(dr_test, model):
     print("Evaluting")
@@ -268,7 +231,8 @@ def evaluate_test(dr_test, model):
     while dr_test.index < dr_test.data_len:
         sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dr_test.get_ids_samples())
         target_indice = convert_mask_index(mask_vecs)#Get target indice
-        weights = get_context_weight(tokens, target_indice)#Get weights for each sentence
+        max_len = max(sent_lens).item()
+        weights = get_dependency_weight(tokens, target_indice, max_len)#Get weights for each sentence
         sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
         if config.if_gpu: 
             sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()

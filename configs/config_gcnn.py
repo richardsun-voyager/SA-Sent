@@ -6,7 +6,7 @@ class Config():
         self.batch_size = 32
 
         #Map words to lower case
-        self.embed_num = 4436
+        self.embed_num = 4428#4436
         #For elmo the emb_size is 1024
         self.embed_dim = 300#1024#300
         self.mask_dim = 50

@@ -7,7 +7,7 @@ import spacy
 spanlp = spacy.load('en')
 
 class dependency_path:
-    def __init__(self, text):
+    def __init__(self, text=None):
         self.text = text
 
     def build_graph(self, text):
@@ -29,7 +29,11 @@ class dependency_path:
         '''
         Compute the path between two nodes
         '''
-        return nx.shortest_path_length(graph, source=node1, target=node2)
+        try:
+            shortest_path_length = nx.shortest_path_length(graph, source=node1, target=node2)
+        except:
+            shortest_path_length = 10000
+        return shortest_path_length
 
     def compute_node_distance(self, graph):
         '''

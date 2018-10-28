@@ -114,9 +114,12 @@ class dataHelper():
         sent_str = " ".join(sent_str.split("!"))
         #For indonesian
         sent_str = " ".join(sent_str.split("@"))
+        sent_str = " ".join(sent_str.split("("))
+        sent_str = " ".join(sent_str.split(")"))
         sent_str = " ".join(sent_str.split())
         sent = nlp(sent_str)
         return [item.text.lower() for item in sent]
+        #return [item.text for item in sent]
         #return nlp.word_tokenize(sent_str)
         
     # namedtuple is protected!
@@ -340,6 +343,7 @@ class dataHelper():
         # list of list
         pair_couter = defaultdict(int)
         for sent_inst in data:
+            text = sent_inst.text
             tokens = sent_inst.text_inds
             token_ids = sent_inst.text_ids
             #print(tokens)
@@ -349,7 +353,7 @@ class dataHelper():
                 polarity = opi_inst.class_ind
                 if tokens is None or mask is None or polarity is None: 
                     continue
-                all_triples.append([tokens, mask, polarity, token_ids])
+                all_triples.append([tokens, mask, polarity, token_ids, str(text)])
                 pair_couter[polarity] += 1
                 
         print(pair_couter)
@@ -478,12 +482,9 @@ class data_reader:
         '''
         Save the data in specified folder
         '''
-        try:
-            with open(save_path, "wb") as f:
-                pickle.dump(data,f)
-            print('Saving successfully!')
-        except:
-            print('Saving failure!')   
+        with open(save_path, "wb") as f:
+            pickle.dump(data,f)
+        print('Saving successfully!')   
 
     def load_data(self, load_path):
         '''
@@ -599,7 +600,7 @@ class data_generator:
         '''
         Transform sentences into elmo, each sentence represented by words
         '''
-        token_list, mask_list, label_list, _ = zip(*triples)
+        token_list, mask_list, label_list, _, _ = zip(*triples)
         sent_lens = [len(tokens) for tokens in token_list]
         sent_lens = torch.LongTensor(sent_lens)
         label_list = torch.LongTensor(label_list)
@@ -621,7 +622,7 @@ class data_generator:
     def reset_samples(self):
         self.index = 0
 
-    def pad_data(self, sents, masks, labels, tokens):
+    def pad_data(self, sents, masks, labels, texts):
         '''
         Padding sentences to same size
         '''
@@ -644,7 +645,7 @@ class data_generator:
         sent_vecs = sent_vecs[perm_idx]
         mask_vecs = mask_vecs[perm_idx]
         label_list = label_list[perm_idx]
-        tokens = [tokens[i.item()] for i in perm_idx]
+        tokens = [texts[i.item()] for i in perm_idx]
         return sent_vecs, mask_vecs, label_list, sent_lens, tokens
 
     def get_ids_samples(self, is_balanced=False):
@@ -656,7 +657,7 @@ class data_generator:
                 samples = self.generate_balanced_sample(self.data_batch)
             else:
                 samples = self.generate_sample(self.data_batch)
-            tokens, mask_list, label_list, token_ids = zip(*samples)
+            tokens, mask_list, label_list, token_ids, texts = zip(*samples)
             #Sorted according to the length
             sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids,mask_list, label_list, tokens)
         else:
@@ -669,13 +670,13 @@ class data_generator:
                 end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
                 self.index += self.config.batch_size
-                tokens, mask_list, label_list, token_ids = zip(*samples)
+                tokens, mask_list, label_list, token_ids, texts = zip(*samples)
                 #Sorting happens here
                 sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
 
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index] 
-                tokens, mask_list, label_list, token_ids = zip(*[samples])
+                tokens, mask_list, label_list, token_ids, texts = zip(*[samples])
                 sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
                 self.index += 1
         yield sent_vecs, mask_vecs, label_list, sent_lens, tokens

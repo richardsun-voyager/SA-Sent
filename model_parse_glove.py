@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 import pdb
 import pickle
-from parse_path import constituency_path
+#from parse_path import constituency_path
 import math
 from util import *
 from torch.nn import utils as nn_utils
