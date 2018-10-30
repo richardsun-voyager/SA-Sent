@@ -1,4 +1,1 @@
 Start Experiment
-Epoch 0
-Validation accuracy:0.6039933444259568
-Testing accuracy:0.6383928571428571

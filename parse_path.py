@@ -1,8 +1,8 @@
 import networkx as nx
 from nltk.tree import Tree
 import numpy as np
-# from stanfordcorenlp import StanfordCoreNLP
-# stfnlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
+from stanfordcorenlp import StanfordCoreNLP
+stfnlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
 # import spacy
 # spanlp = spacy.load('en')
 import en_core_web_sm

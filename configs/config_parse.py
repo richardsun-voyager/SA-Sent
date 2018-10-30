@@ -42,16 +42,18 @@ class Config():
 
         #################Restaurant
         self.pretrained_embed_path = "../data/word_embeddings/glove.6B.300d.txt"
-        self.embed_path = "data/restaurant_parse/vocab/local_emb.pkl"
-        self.data_path = "data/restaurant_parse/"
-        self.train_path = "data/restaurant_parse/train.pkl"
-        self.valid_path = "data/restaurant_parse/valid.pkl"
-        self.test_path = "data/restaurant_parse/test.pkl"
-        self.dic_path = "data/restaurant_parse/vocab/dict.pkl"
+        self.embed_path = "data/restaurant_constituency/vocab/local_emb.pkl"
+        self.data_path = "data/restaurant_constituency/"
+        self.train_path = "data/restaurant_constituency/train.pkl"
+        self.valid_path = "data/restaurant_constituency/valid.pkl"
+        self.test_path = "data/restaurant_constituency/test.pkl"
+        self.dic_path = "data/restaurant_constituency/vocab/dict.pkl"
 
 
         self.model_path = "data/models/"
         self.log_path = "data/logs/"
+
+        self.is_stanford_nlp = True
 
     
     def __repr__(self):

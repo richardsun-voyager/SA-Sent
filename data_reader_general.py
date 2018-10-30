@@ -160,9 +160,10 @@ class dataHelper():
         for sent_i in np.arange(sent_len):
             sent_inst = data[sent_i]
             #Tokenize texts
-            # if stanford_tokenizer:
-            #     sent_tokens = self.sta
-            sent_tokens = self.tokenize(sent_inst.text)
+            if stanford_tokenizer:
+                sent_tokens = self.stanford_tokenize(sent_inst.text)
+            else:
+                sent_tokens = self.tokenize(sent_inst.text)
             text_words.append(sent_tokens)
             sent_inst = sent_inst._replace(text_inds = sent_tokens)
             opinion_list = []
@@ -172,7 +173,10 @@ class dataHelper():
                 opi_inst = sent_inst.opinions[opi_i]
 
                 target = opi_inst.target_text
-                target_tokens = self.tokenize(target)
+                if stanford_tokenizer:
+                    target_tokens = self.stanford_tokenize(target)
+                else:
+                    target_tokens = self.tokenize(target)
                 try:
                     target_start = sent_tokens.index(target_tokens[0])
                     target_end = sent_tokens[max(0, target_start - 1):].index(target_tokens[-1])  + max(0, target_start - 1)
@@ -346,7 +350,7 @@ class dataHelper():
         return vec
     
 
-    def read(self, data_path, data_source='xml', is_training=True):
+    def read(self, data_path, data_source='xml'):
         '''
         read and process raw data, create dictionary and index based on the training data
         '''
@@ -357,7 +361,7 @@ class dataHelper():
         #self.test_data = self.read_xml_data(test_data)
         print('Dataset number:', len(train_data))
         #print('Testing dataset number:', len(self.test_data))
-        data = self.process_raw_data(train_data, is_training)
+        data = self.process_raw_data(train_data, self.config.is_stanford_nlp)
 
         # emb = self.load_pretrained_word_emb(config.pretrained_embed_path)
         # _ = self.get_local_word_embeddings(emb, words)
@@ -428,7 +432,7 @@ class data_reader:
         data_list = []
         text_word_list = []
         for data_path in data_path_list:
-            data, text_words = self.dh.read(data_path, data_source, self.is_training)
+            data, text_words = self.dh.read(data_path, data_source)
             data_list.append(data)
             text_word_list.extend(text_words)
         #Build dictionary based on all the words

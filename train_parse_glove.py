@@ -2,7 +2,7 @@
 from __future__ import division
 from model_parse_glove import *
 from data_reader_general import *
-from parse_path import dependency_path
+from parse_path import dependency_path, constituency_path
 from configs.config_parse import config
 import pickle
 from Layer import GloveMaskCat
@@ -10,9 +10,6 @@ import numpy as np
 import codecs
 import copy
 import os, sys
-from mosestokenizer import MosesTokenizer, MosesDetokenizer
-
-detokenizer = MosesDetokenizer()
 
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (1.5 ** (epoch // config.adjust_every))
@@ -43,6 +40,7 @@ id2label = ["positive", "neutral", "negative"]
 #Load concatenation layer and attention model layer
 cat_layer = GloveMaskCat(config)
 dp = dependency_path()
+cp = constituency_path()
 def convert_mask_index(masks):
     '''
     Find the indice of none zeros values in masks, namely the target indice
@@ -60,22 +58,9 @@ def get_dependency_weight(tokens, targets, max_len):
     '''
     weights = np.zeros([len(tokens), max_len])
     for i, token in enumerate(tokens):
-        #print('Original word num')
-        #print(len(token))
-        #text = ' '.join(token)#Connect them into a string
-        #text = detokenizer(token)
-        #document = spanlp(text.replace(" '", "'"))
-        #text = text.replace(" '", "'")
         try:
             graph = dp.build_graph(token)
             mat = dp.compute_node_distance(graph, max_len)
-            #print(len(new_tokens))
-            #Note for some words without children, the node will not be included
-            # if len(token) != len(mat):
-            #     print('Word number conflicts!')
-            #     #print(text)
-            #     print(token)
-            #     print(graph.nodes)
         except:
             print('Error!!!!!!!!!!!!!!!!!!')
             print(text)
@@ -89,28 +74,21 @@ def get_dependency_weight(tokens, targets, max_len):
             break
     return torch.FloatTensor(weights)
 
-# def get_context_weight(tokens, targets):
-#     max_len = max(map(len, tokens))
-#     weights = np.zeros([len(tokens), max_len])
-#     for i, token in enumerate(tokens):
-#         #print('Original word num')
-#         #print(len(token))
-#         text = ' '.join(token)#Connect them into a string
-#         try:
-#             new_tokens = cp.build_parser(text).leaves()
-#             #print(len(new_tokens))
-#             if len(token) != len(new_tokens):
-#                 print(text)
-#         except:
-#             print('Parsing error')
-#             print(text)
-#         try:
-#             max_w, min_w, a_v = cp.proceed(text, targets[i])
-#             weights[i, :len(max_w)] = max_w
-#         except:
-#             print('text process error')
-#             print(text, targets[i])
-#     return torch.FloatTensor(weights)
+def get_context_weight(tokens, targets, max_len):
+    weights = np.zeros([len(tokens), max_len])
+    for i, token in enumerate(tokens):
+        #print('Original word num')
+        #print(len(token))
+        #text = ' '.join(token)#Connect them into a string
+        #stanford nlp cannot identify the abbreviations ending with '.' in the sentences
+
+        try:
+            max_w, min_w, a_v = cp.proceed(token, targets[i])
+            weights[i, :len(max_w)] = max_w
+        except Exception as e:
+            print(e)
+            print(token, targets[i])
+    return torch.FloatTensor(weights)
 
 
 def train():
@@ -119,17 +97,17 @@ def train():
     best_model = None
 
     # #Load and preprocess raw dataset
-    # TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    # TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    # path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
-    # #First time, need to preprocess and save the data
-    # #Read XML file
-    # dr = data_reader(config)
-    # dr.read_train_test_data(path_list)
-    # print('Data Preprocessed!')
-    # dr = data_reader(config)
-    # train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
-    # dr.split_save_data(config.train_path, config.valid_path)
+    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+    path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
+    #First time, need to preprocess and save the data
+    #Read XML file
+    dr = data_reader(config)
+    dr.read_train_test_data(path_list)
+    print('Data Preprocessed!')
+    dr = data_reader(config)
+    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    dr.split_save_data(config.train_path, config.valid_path)
 
 
 
@@ -179,7 +157,8 @@ def train():
             sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dg_train.get_ids_samples())
             target_indice = convert_mask_index(mask_vecs)#Get target indice
             max_len = max(sent_lens).item()
-            weights = get_dependency_weight(tokens, target_indice, max_len)#Get weights for each sentence
+           #weights = get_dependency_weight(tokens, target_indice, max_len)#Get weights for each sentence
+            weights = get_context_weight(tokens, target_indice, max_len)
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
                 sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
