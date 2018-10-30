@@ -3,9 +3,10 @@ from nltk.tree import Tree
 import numpy as np
 # from stanfordcorenlp import StanfordCoreNLP
 # stfnlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
-import spacy
-spanlp = spacy.load('en')
-
+# import spacy
+# spanlp = spacy.load('en')
+import en_core_web_sm
+spanlp = en_core_web_sm.load()
 class dependency_path:
     def __init__(self, text=None):
         self.text = text
@@ -21,7 +22,6 @@ class dependency_path:
             for child in token.children:
                 edges.append(('{0}-{1}'.format(token.lower_,token.i),
                             '{0}-{1}'.format(child.lower_,child.i)))
-
         graph = nx.Graph(edges)
         return graph
 
@@ -32,32 +32,29 @@ class dependency_path:
         try:
             shortest_path_length = nx.shortest_path_length(graph, source=node1, target=node2)
         except:
-            shortest_path_length = 10000
+            #Penalize the distance between two non-adjacent nodes
+            shortest_path_length = 1000
         return shortest_path_length
 
-    def compute_node_distance(self, graph):
+    def compute_node_distance(self, graph, word_num):
         '''
         Compute the path for each node pair
         '''
         nodes = list(graph.nodes())
         node_order = np.array([int(node.split('-')[1]) for node in nodes])
         #Sort the words according to the original order
-        indice = node_order.argsort()
-        nodes = [nodes[i] for i in indice]
-        node_num = len(nodes)
-        mat = np.zeros([node_num, node_num])
+        # indice = node_order.argsort()
+        # nodes = [nodes[i] for i in indice]
+        # node_num = len(nodes)
+        #mat = np.ones([word_num, word_num]) * 1000
+        mat = (1-np.identity(word_num)) * 1000
         #Calculate the path for each node pair
-        for i in np.arange(node_num-1):
-            for j in np.arange(i+1, node_num):
-                mat[i, j] = self.get_shortest_path_len(graph, nodes[i], nodes[j])
-                mat[j, i] = mat[i, j]
-        
-        # mat_sum = mat.sum(1)
-        #normalization
-        # for i in np.arange(node_num):
-        #     if mat_sum[i] == 0:
-        #         print('Path sum zero')
-        #     mat[i, :] /= mat_sum[i]
+        for i in np.arange(len(nodes)-1):
+            for j in np.arange(i+1, len(nodes)):
+                loc_i = node_order[i]
+                loc_j = node_order[j]
+                mat[loc_i, loc_j] = self.get_shortest_path_len(graph, nodes[i], nodes[j])
+                mat[loc_j, loc_i] = mat[loc_i, loc_j]
         return mat
 
     def compute_soft_targets_weights(self, mat, target_nodes):

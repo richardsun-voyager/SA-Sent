@@ -17,8 +17,11 @@ from allennlp.modules.elmo import Elmo, batch_to_ids
 import en_core_web_sm
 nlp = en_core_web_sm.load()
 
-# from stanfordcorenlp import StanfordCoreNLP
-# nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
+# from mosestokenizer import MosesTokenizer
+# tokenizer = MosesTokenizer()
+
+from stanfordcorenlp import StanfordCoreNLP
+stanford_nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
 
 options_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 weight_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
@@ -83,7 +86,7 @@ class dataHelper():
         sentence_list = []
         for sent_tag in sentence_tags:
             sent_id = sent_tag.attrs["id"]
-            sent_text = sent_tag.find("text").contents[0]
+            sent_text = self.clean_text(sent_tag.find("text").contents[0])
             opinion_list = []
             try:
                 asp_tag = sent_tag.find_all("aspectterms")[0]
@@ -93,8 +96,8 @@ class dataHelper():
                 continue
             opinion_tags = asp_tag.find_all("aspectterm")
             for opinion_tag in opinion_tags:
-                term = opinion_tag.attrs["term"]
-                if term not in sent_text: pdb.set_trace()
+                term = self.clean_text(opinion_tag.attrs["term"])
+                if term not in sent_text: print(sent_text, term)
                 polarity = opinion_tag.attrs["polarity"]
                 opinion_inst = OpinionInst(term, polarity, None, None, None)
                 opinion_list.append(opinion_inst)
@@ -103,27 +106,51 @@ class dataHelper():
 
         return sentence_list
 
+    def clean_str(self, text):
+        """
+        Tokenization/string cleaning for all datasets except for SST.
+        Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
+        """
+        string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", text)
+        string = re.sub(r"\'s", " \'s", string)
+        string = re.sub(r"\'ve", " \'ve", string)
+        string = re.sub(r"n\'t", " n\'t", string)
+        string = re.sub(r"\'re", " \'re", string)
+        string = re.sub(r"\'d", " \'d", string)
+        string = re.sub(r"\'ll", " \'ll", string)
+        string = re.sub(r",", " , ", string)
+        string = re.sub(r"!", " ! ", string)
+        string = re.sub(r"\(", " \( ", string)
+        string = re.sub(r"\)", " \) ", string)
+        string = re.sub(r"\?", " \? ", string)
+        string = re.sub(r"\s{2,}", " ", string)
+        return string.strip()
+
+    def clean_text(self, text):
+        # return word_tokenize(sent_str)
+        sent_str = " ".join(text.split("-"))
+        sent_str = " ".join(sent_str.split("/"))
+        sent_str = " ".join(sent_str.split("("))
+        sent_str = " ".join(sent_str.split(")"))
+        sent_str = " ".join(sent_str.split())
+        return sent_str
+
+    
+    def stanford_tokenize(self, sent_str):
+        return stanford_nlp.word_tokenize(sent_str)
+
 
     def tokenize(self, sent_str):
         '''
         Split a sentence into tokens
         '''
-        # return word_tokenize(sent_str)
-        sent_str = " ".join(sent_str.split("-"))
-        sent_str = " ".join(sent_str.split("/"))
-        sent_str = " ".join(sent_str.split("!"))
-        #For indonesian
-        sent_str = " ".join(sent_str.split("@"))
-        sent_str = " ".join(sent_str.split("("))
-        sent_str = " ".join(sent_str.split(")"))
-        sent_str = " ".join(sent_str.split())
         sent = nlp(sent_str)
-        return [item.text.lower() for item in sent]
-        #return [item.text for item in sent]
-        #return nlp.word_tokenize(sent_str)
+        #return [item.text.lower() for item in sent]
+        return [item.text for item in sent]
+        #return tokenizer(sent_str)
         
     # namedtuple is protected!
-    def process_raw_data(self, data, is_training=True):
+    def process_raw_data(self, data, stanford_tokenizer=False):
         '''
         Tokenize each sentence, compute aspect mask for each sentence
         '''
@@ -133,6 +160,8 @@ class dataHelper():
         for sent_i in np.arange(sent_len):
             sent_inst = data[sent_i]
             #Tokenize texts
+            # if stanford_tokenizer:
+            #     sent_tokens = self.sta
             sent_tokens = self.tokenize(sent_inst.text)
             text_words.append(sent_tokens)
             sent_inst = sent_inst._replace(text_inds = sent_tokens)
@@ -659,7 +688,7 @@ class data_generator:
                 samples = self.generate_sample(self.data_batch)
             tokens, mask_list, label_list, token_ids, texts = zip(*samples)
             #Sorted according to the length
-            sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids,mask_list, label_list, tokens)
+            sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids,mask_list, label_list, texts)
         else:
             if self.index == self.data_len:
                 print('Testing Over!')
@@ -672,12 +701,12 @@ class data_generator:
                 self.index += self.config.batch_size
                 tokens, mask_list, label_list, token_ids, texts = zip(*samples)
                 #Sorting happens here
-                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
+                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, texts)
 
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index] 
                 tokens, mask_list, label_list, token_ids, texts = zip(*[samples])
-                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, tokens)
+                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, texts)
                 self.index += 1
         yield sent_vecs, mask_vecs, label_list, sent_lens, tokens
 

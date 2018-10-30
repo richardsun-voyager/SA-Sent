@@ -10,6 +10,9 @@ import numpy as np
 import codecs
 import copy
 import os, sys
+from mosestokenizer import MosesTokenizer, MosesDetokenizer
+
+detokenizer = MosesDetokenizer()
 
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (1.5 ** (epoch // config.adjust_every))
@@ -59,16 +62,20 @@ def get_dependency_weight(tokens, targets, max_len):
     for i, token in enumerate(tokens):
         #print('Original word num')
         #print(len(token))
-        text = ' '.join(token)#Connect them into a string
+        #text = ' '.join(token)#Connect them into a string
+        #text = detokenizer(token)
         #document = spanlp(text.replace(" '", "'"))
-        text = text.replace(" '", "'")
+        #text = text.replace(" '", "'")
         try:
-            graph = dp.build_graph(text)
-            mat = dp.compute_node_distance(graph)
+            graph = dp.build_graph(token)
+            mat = dp.compute_node_distance(graph, max_len)
             #print(len(new_tokens))
-            if len(token) != len(mat):
-                print('Word number conflicts!')
-                print(text)
+            #Note for some words without children, the node will not be included
+            # if len(token) != len(mat):
+            #     print('Word number conflicts!')
+            #     #print(text)
+            #     print(token)
+            #     print(graph.nodes)
         except:
             print('Error!!!!!!!!!!!!!!!!!!')
             print(text)
@@ -111,11 +118,12 @@ def train():
     best_acc = 0
     best_model = None
 
-    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
-    #First time, need to preprocess and save the data
-    #Read XML file
+    # #Load and preprocess raw dataset
+    # TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+    # TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+    # path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
+    # #First time, need to preprocess and save the data
+    # #Read XML file
     # dr = data_reader(config)
     # dr.read_train_test_data(path_list)
     # print('Data Preprocessed!')
