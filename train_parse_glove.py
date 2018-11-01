@@ -97,17 +97,17 @@ def train():
     best_model = None
 
     # #Load and preprocess raw dataset
-    TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-    TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-    path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
-    #First time, need to preprocess and save the data
-    #Read XML file
-    dr = data_reader(config)
-    dr.read_train_test_data(path_list)
-    print('Data Preprocessed!')
-    dr = data_reader(config)
-    train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
-    dr.split_save_data(config.train_path, config.valid_path)
+    # TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
+    # TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
+    # path_list = [TRAIN_DATA_PATH, TEST_DATA_PATH]
+    # #First time, need to preprocess and save the data
+    # #Read XML file
+    # dr = data_reader(config)
+    # dr.read_train_test_data(path_list)
+    # print('Data Preprocessed!')
+    # dr = data_reader(config)
+    # train_data = dr.load_data(config.data_path+'Restaurants_Train_v2.xml.pkl')
+    # dr.split_save_data(config.train_path, config.valid_path)
 
 
 
@@ -219,7 +219,7 @@ def evaluate_test(dr_test, model):
         sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dr_test.get_ids_samples())
         target_indice = convert_mask_index(mask_vecs)#Get target indice
         max_len = max(sent_lens).item()
-        weights = get_dependency_weight(tokens, target_indice, max_len)#Get weights for each sentence
+        weights = get_context_weight(tokens, target_indice, max_len)#Get weights for each sentence
         sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
         if config.if_gpu: 
             sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()

@@ -128,6 +128,8 @@ class dataHelper():
 
     def clean_text(self, text):
         # return word_tokenize(sent_str)
+        if self.config.is_stanford_nlp:
+            text = self.clean_str(text)
         sent_str = " ".join(text.split("-"))
         sent_str = " ".join(sent_str.split("/"))
         sent_str = " ".join(sent_str.split("("))
