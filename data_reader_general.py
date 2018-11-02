@@ -20,8 +20,8 @@ nlp = en_core_web_sm.load()
 # from mosestokenizer import MosesTokenizer
 # tokenizer = MosesTokenizer()
 
-from stanfordcorenlp import StanfordCoreNLP
-stanford_nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
+# from stanfordcorenlp import StanfordCoreNLP
+# stanford_nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
 
 options_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 weight_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
