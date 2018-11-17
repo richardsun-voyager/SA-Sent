@@ -1,6 +1,6 @@
 from model_gcnn_glove import *
 from data_reader_general import *
-from configs.config_gcnn import config
+from configs.config import config
 from torch import optim
 import pickle
 
