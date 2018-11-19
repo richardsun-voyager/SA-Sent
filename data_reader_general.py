@@ -134,6 +134,7 @@ class dataHelper():
         sent_str = " ".join(sent_str.split("/"))
         sent_str = " ".join(sent_str.split("("))
         sent_str = " ".join(sent_str.split(")"))
+        sent_str = " ".join(sent_str.split(";"))
         sent_str = " ".join(sent_str.split())
         return sent_str
 
@@ -635,7 +636,7 @@ class data_generator:
         '''
         Transform sentences into elmo, each sentence represented by words
         '''
-        token_list, mask_list, label_list, _, _ = zip(*triples)
+        token_list, mask_list, label_list, _, texts = zip(*triples)
         sent_lens = [len(tokens) for tokens in token_list]
         sent_lens = torch.LongTensor(sent_lens)
         label_list = torch.LongTensor(label_list)
@@ -650,7 +651,7 @@ class data_generator:
         mask_vecs = torch.LongTensor(mask_vecs)
         for i, mask in enumerate(mask_list):
             mask_vecs[i, :len(mask)] = torch.LongTensor(mask)
-        return sent_vecs, mask_vecs, label_list, sent_lens
+        return sent_vecs, mask_vecs, label_list, sent_lens, texts
 
     
 
@@ -716,7 +717,7 @@ class data_generator:
                 self.index += 1
         yield sent_vecs, mask_vecs, label_list, sent_lens, tokens
 
-    def get_elmo_samples(self):
+    def get_elmo_samples(self, is_with_texts=False):
         '''
         Generate random samples for training process
         Generate samples for testing process
@@ -724,12 +725,13 @@ class data_generator:
         '''
         if self.is_training:
             samples = self.generate_sample(self.data_batch)
-            sent_vecs, mask_vecs, label_list, sent_lens = self.elmo_transform(samples)
+            sent_vecs, mask_vecs, label_list, sent_lens, texts = self.elmo_transform(samples)
             #Sort the lengths, and change orders accordingly
             sent_lens, perm_idx = sent_lens.sort(0, descending=True)
             sent_vecs = sent_vecs[perm_idx]
             mask_vecs = mask_vecs[perm_idx]
             label_list = label_list[perm_idx]
+            texts = [texts[i.item()] for i in perm_idx]
         else:
             if self.index == self.data_len:
                 print('Testing Over!')
@@ -740,17 +742,21 @@ class data_generator:
                 end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
                 self.index += self.config.batch_size
-                sent_vecs, mask_vecs, label_list, sent_lens = self.elmo_transform(samples)
+                sent_vecs, mask_vecs, label_list, sent_lens, texts = self.elmo_transform(samples)
                 #Sort the lengths, and change orders accordingly
                 sent_lens, perm_idx = sent_lens.sort(0, descending=True)
                 sent_vecs = sent_vecs[perm_idx]
                 mask_vecs = mask_vecs[perm_idx]
                 label_list = label_list[perm_idx]
+                texts = [texts[i.item()] for i in perm_idx]
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index] 
-                sent_vecs, mask_vecs, label_list, sent_lens = self.elmo_transform([samples])
+                sent_vecs, mask_vecs, label_list, sent_lens, texts = self.elmo_transform([samples])
                 self.index += 1
-        yield sent_vecs, mask_vecs, label_list, sent_lens
+        if is_with_texts:
+            yield sent_vecs, mask_vecs, label_list, sent_lens, texts
+        else:
+            yield sent_vecs, mask_vecs, label_list, sent_lens
 
         
     

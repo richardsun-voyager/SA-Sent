@@ -68,7 +68,7 @@ def train():
     dr = data_reader(config)
     train_data = dr.load_data(config.train_path)
     valid_data = dr.load_data(config.valid_path)
-    test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
+    test_data = dr.load_data(config.data_path+'Laptops_Test_Gold.xml.pkl')
     print('Training Samples:', len(train_data))
     print('Validating Samples:', len(valid_data))
     print('Testing Samples:', len(test_data))

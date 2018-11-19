@@ -75,7 +75,7 @@ class SimpleCat(nn.Module):
         self.dropout = nn.Dropout(config.dropout)
 
     # input are tensors
-    def forward(self, sent, mask, is_elmo=True):
+    def forward(self, sent, mask, is_elmo=False):
         '''
         Args:
         sent: tensor, shape(batch_size, max_len, emb_dim)

@@ -1,8 +1,8 @@
 #!/usr/bin/python
 from __future__ import division
-from model_rnn_gcnn_glove import *
+from model_rnn_gcnn_elmo import *
 from data_reader_general import *
-from configs.config_rnn_gcnn import config
+from configs.config_rnn_gcnn_elmo import config
 from torch import optim
 import pickle
 from Layer import GloveMaskCat
@@ -66,7 +66,7 @@ def train():
 
     #Load preprocessed data directly
     dr = data_reader(config)
-    train_data = dr.load_data(config.train_path)
+    train_data = dr.load_data('data/restaurant/Restaurants_Train_v2.xml.pkl')
     valid_data = dr.load_data(config.valid_path)
     test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
     print('Training Samples:', len(train_data))
@@ -84,7 +84,7 @@ def train():
 
     
 
-    cat_layer.load_vector()
+    #cat_layer.load_vector()
 
     #train_batch, test_batch = load_data('data/bailin_data/data.pkl')
     #sent_vecs, mask_vecs, label_list, sent_lens = dr.get_samples()
@@ -110,8 +110,8 @@ def train():
 
         for _ in np.arange(loops):
             optimizer.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens, _ = next(dg_train.get_ids_samples(True))
-            sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
+            sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_elmo_samples())
+            #sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
 
             if config.if_gpu: 
                 sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
@@ -123,7 +123,7 @@ def train():
                 if (w is not None) and w.requires_grad:
                     l2_loss += w.norm(2)
             print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
-            cls_loss += l2_loss * 0.001#previous we tried 0.005
+            cls_loss += l2_loss * 0.0005#0.001for restaurant, 0.003 for laptop
             cls_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
             optimizer.step()
@@ -169,8 +169,8 @@ def evaluate_test(dr_test, model):
     true_labels = []
     pred_labels = []
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, tokens = next(dr_test.get_ids_samples())
-        sent, target = cat_layer(sent, mask)
+        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
+        #sent, target = cat_layer(sent, mask)
         if config.if_gpu: 
             sent, mask = sent.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()
@@ -179,7 +179,7 @@ def evaluate_test(dr_test, model):
         pred_labels.extend(pred_label.cpu().numpy())
         #Count number of correct predictions
         correct_count += sum(pred_label==label).cpu().item()
-        record_mislabeled_samples(pred_label, label, tokens, mask)
+        #record_mislabeled_samples(pred_label, label, tokens, mask)
     if dr_test.data_len < 1:
         print('Testing Data Error')
     acc = correct_count * 1.0 / dr_test.data_len

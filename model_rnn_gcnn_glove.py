@@ -151,9 +151,13 @@ def convert_mask_index(masks):
     '''
     target_indice = []
     max_len = 0
-    for mask in masks:
-        indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
-        if max_len < len(indice):
-            max_len = len(indice)
-        target_indice.append(indice)
+    try:
+        for mask in masks:
+            indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
+            if max_len < len(indice):
+                max_len = len(indice)
+            target_indice.append(indice)
+    except:
+        print('Mask Data Error')
+        print(mask)
     return target_indice, max_len

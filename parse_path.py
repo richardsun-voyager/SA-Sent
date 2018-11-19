@@ -129,7 +129,7 @@ class constituency_path:
         distance = 0
         for i, num in enumerate(pos1):
             if num != pos2[i]:#The distance between two words
-                distance = np.abs(num-pos2[i]) + len(pos1) + len(pos2) - 2*i - 4
+                distance = 1 + len(pos1) + len(pos2) - 2*i - 4
                 break
         return distance
 
@@ -155,7 +155,7 @@ class constituency_path:
         for i, node in enumerate(target_nodes):
             target_weights[i] = np.array(self.compute_target_distance(positions, node))
             #target_weights[i] /= sum(target_weights[i])
-            target_weights[i] = np.exp(-target_weights[i]**2/max(target_weights[i]))
+            target_weights[i] = np.exp(-target_weights[i]**2/10)
         max_target_weight = target_weights.max(0)
         min_target_weight = target_weights.min(0)
         avg_target_weight = target_weights.mean(0)

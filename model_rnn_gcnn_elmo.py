@@ -50,7 +50,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         self.config = config
         
         #V = config.embed_num
-        D = config.l_hidden_size
+        D = config.embed_dim
         C = 3#config.class_num
 
         Co = 128#kernel numbers
@@ -77,7 +77,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         label: a list labels
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
-        context = self.lstm(sents, lens)
+        context = sents
 
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
@@ -126,8 +126,12 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
     def forward(self, sents, masks, labels, lens):
         #Sent emb_dim + 50
+        ##For restaurant
+        #sent = F.dropout(sents, p=0.2, training=self.training)
         
-        sent = F.dropout(sents, p=0.2, training=self.training)
+        #For laptop
+        sent = F.dropout(sents, p=0.5, training=self.training)
+        
         scores = self.compute_score(sents, masks, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
@@ -151,9 +155,12 @@ def convert_mask_index(masks):
     '''
     target_indice = []
     max_len = 0
-    for mask in masks:
-        indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
-        if max_len < len(indice):
-            max_len = len(indice)
-        target_indice.append(indice)
+    try:
+        for mask in masks:
+            indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
+            if max_len < len(indice):
+                max_len = len(indice)
+            target_indice.append(indice)
+    except:
+        print(mask)
     return target_indice, max_len

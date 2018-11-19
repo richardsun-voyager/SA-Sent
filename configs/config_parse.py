@@ -41,7 +41,7 @@ class Config():
         # self.dic_path = "data/2014/dic.pkl"
 
         #################Restaurant
-        self.pretrained_embed_path = "../data/word_embeddings/glove.6B.300d.txt"
+        self.pretrained_embed_path = "../data/word_embeddings/glove.840B.300d.txt"
         self.embed_path = "data/restaurant_constituency/vocab/local_emb.pkl"
         self.data_path = "data/restaurant_constituency/"
         self.train_path = "data/restaurant_constituency/train.pkl"
