@@ -29,14 +29,6 @@ def create_opt(parameters, config):
         optimizer = optim.Adagrad(parameters, lr=config.lr)
     return optimizer
 
-def load_data(data_path, if_utf=False):
-    f = open(data_path, 'rb')
-    obj = pickle.load(f)
-    f.close()
-    return obj
-
-
-
 
 id2label = ["positive", "neutral", "negative"]
 #Load concatenation layer and attention model layer
@@ -51,7 +43,7 @@ def train():
     dr = data_reader(config)
     train_data = dr.load_data(config.train_path)
     valid_data = dr.load_data(config.valid_path)
-    test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
+    test_data = dr.load_data(config.test_path)
     print('Training Samples:', len(train_data))
     print('Validating Samples:', len(valid_data))
     print('Testing Samples:', len(test_data))

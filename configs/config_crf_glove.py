@@ -6,7 +6,7 @@ class Config():
         self.batch_size = 32
 
         #Map words to lower case
-        self.embed_num = 5121
+        self.embed_num = 5120
         #For elmo the emb_size is 1024
         self.embed_dim = 300#1024#300
         self.mask_dim = 50
@@ -46,7 +46,7 @@ class Config():
         self.data_path = "data/restaurant/"
         self.train_path = "data/restaurant/train.pkl"
         self.valid_path = "data/restaurant/valid.pkl"
-        self.test_path = "data/restaurant/test.pkl"
+        self.test_path = "data/restaurant/Restaurants_Test_Gold.xml.pkl"
         self.dic_path = "data/restaurant/vocab/dict.pkl"
 
 

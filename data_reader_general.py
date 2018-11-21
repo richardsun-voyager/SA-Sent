@@ -28,7 +28,7 @@ weight_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 elmo = Elmo(options_file, weight_file, 2, dropout=0)
 
 SentInst = namedtuple("SentenceInstance", "id text text_ids text_inds opinions")
-OpinionInst = namedtuple("OpinionInstance", "target_text polarity class_ind target_mask target_ids")
+OpinionInst = namedtuple("OpinionInstance", "target_text polarity class_ind target_mask target_ids target_tokens")
 
 class dataHelper():
     def __init__(self, config):
@@ -99,7 +99,7 @@ class dataHelper():
                 term = self.clean_text(opinion_tag.attrs["term"])
                 if term not in sent_text: print(sent_text, term)
                 polarity = opinion_tag.attrs["polarity"]
-                opinion_inst = OpinionInst(term, polarity, None, None, None)
+                opinion_inst = OpinionInst(term, polarity, None, None, None, None)
                 opinion_list.append(opinion_inst)
             sent_Inst = SentInst(sent_id, sent_text, None, None, opinion_list)
             sentence_list.append(sent_Inst)
@@ -135,6 +135,7 @@ class dataHelper():
         sent_str = " ".join(sent_str.split("("))
         sent_str = " ".join(sent_str.split(")"))
         sent_str = " ".join(sent_str.split(";"))
+        sent_str = " ".join(sent_str.split("@"))
         sent_str = " ".join(sent_str.split())
         return sent_str
 
@@ -148,7 +149,6 @@ class dataHelper():
         Split a sentence into tokens
         '''
         sent = nlp(sent_str)
-        #return [item.text.lower() for item in sent]
         return [item.text for item in sent]
         #return tokenizer(sent_str)
         
@@ -159,7 +159,7 @@ class dataHelper():
         '''
         sent_len = len(data)
         #print('Sentences Num:', sent_len)
-        text_words = []
+        text_words = []#record all the words
         for sent_i in np.arange(sent_len):
             sent_inst = data[sent_i]
             #Tokenize texts
@@ -174,40 +174,51 @@ class dataHelper():
             #Read  opinion info
             for opi_i in np.arange(opi_len):
                 opi_inst = sent_inst.opinions[opi_i]
-
                 target = opi_inst.target_text
+                mask = [0] * len(sent_tokens)
                 if stanford_tokenizer:
                     target_tokens = self.stanford_tokenize(target)
                 else:
                     target_tokens = self.tokenize(target)
-                try:
-                    target_start = sent_tokens.index(target_tokens[0])
-                    target_end = sent_tokens[max(0, target_start - 1):].index(target_tokens[-1])  + max(0, target_start - 1)
-                except:
-                    #pdb.set_trace()
-                    print('Error data:', sent_inst.text)
-                    print('Target error ', target_tokens)
+                #If no targets specified, skip
+                if len(target_tokens) < 1:
+                    print('No target')
+                    print('Sent:', sent_tokens)
                     continue
+                
+                #Find the position of the target, i.e, 
+                #"I saw the black dog and a white dog stand there, what a lovely black dog, so black !"
+                index = []
+                sent_tokens = np.array(sent_tokens)
+                target_start = target_tokens[0]
+                target_end = target_tokens[-1]
+                index = np.where(sent_tokens == target_start)[0]
+                #Different locations
+                for i in index:
+                    if i+len(target_tokens) >= len(sent_tokens):
+                        continue
+                    if target_end == sent_tokens[i+len(target_tokens)-1]:
+                        mask[i:(i+len(target_tokens))] = [1]*len(target_tokens)
                     
-                if target_start < 0 or target_end < 0:
-                    #pdb.set_trace()
-                    print('Traget not in the vocabulary')
+                if len(index) < 1:
+                    print('Target not in the sentence', target_tokens)
+                    print('Sentence:', sent_tokens)
                     continue
-                    
-                mask = [0] * len(sent_tokens)
-                for m_i in range(target_start, target_end + 1):
-                    mask[m_i] = 1
+                
 
                 label = opi_inst.polarity
                 if label == "conflict":  continue  # ignore conflict ones
+                #Record label
                 opi_inst = opi_inst._replace(class_ind = self.label2id[label])
+                #Record target mask
                 opi_inst = opi_inst._replace(target_mask = mask)
+                #Record tokens
+                opi_inst = opi_inst._replace(target_tokens = target_tokens)
                 opinion_list.append(opi_inst)
-            
+            #update the data
             sent_inst = sent_inst._replace(opinions = opinion_list)
             data[sent_i] = sent_inst
-        #Map a token into an ID
-        #data, words = self.text2ids(data, text_words, is_training)
+
         return data, text_words
 
     
@@ -248,8 +259,8 @@ class dataHelper():
             #Map target words into IDs
             for opi_i in np.arange(opi_len):
                 opi_inst = sent_inst.opinions[opi_i]
-                target = opi_inst.target_text
-                target_tokens = self.tokenize(target)
+                target_tokens = opi_inst.target_tokens
+                #target_tokens = self.tokenize(target)
                 target_ids = [w2id(token) for token in target_tokens]
                 opi_inst = opi_inst._replace(target_ids=target_ids)
                 sent_inst.opinions[opi_i] = opi_inst
@@ -327,12 +338,6 @@ class dataHelper():
         '''
         word_emb = {}
         vocab_words = set()
-#         with open(file_path) as fi:
-#             for line in fi:
-#                 items = line.split()
-#                 word_emb[items[0]] = np.array(items[1:], dtype=np.float32)
-#                 vocab_words.add(items[0])
-#         return word_emb, vocab_words
         with open(file_path) as fi:
             for line in fi:
                 items = line.split()
@@ -386,29 +391,14 @@ class dataHelper():
             for opi_inst in sent_inst.opinions:
                 if opi_inst.polarity is None:  continue # conflict one
                 mask = opi_inst.target_mask
+                targets = opi_inst.target_tokens
                 polarity = opi_inst.class_ind
                 if tokens is None or mask is None or polarity is None: 
                     continue
-                all_triples.append([tokens, mask, polarity, token_ids, str(text)])
+                all_triples.append([tokens, mask, polarity, token_ids, str(text), targets])
                 pair_couter[polarity] += 1
                 
         print(pair_couter)
-
-        if if_batch:
-            print('Shuffle')
-            random.shuffle(all_triples)
-            batch_n = int(len(all_triples) / self.config.batch_size + 1)
-            print("{0} instances with {1} batches".format(len(all_triples), batch_n))
-            ret_triples = []
-            
-            offset = 0
-            for i in range(batch_n):
-                start = self.config.batch_size * i
-                end = min(self.config.batch_size * (i+1), len(all_triples) )
-                ret_triples.append(all_triples[start : end])
-            return ret_triples
-        else:
-            return all_triples
 
 
 
@@ -429,7 +419,7 @@ class data_reader:
         '''
         Reading Raw Dataset from several files
         Args:
-        data_path_list: a list of raw text files
+        data_path_list: a list of raw text file paths
         '''
         print('Reading Dataset....')
         data_list = []
@@ -453,7 +443,7 @@ class data_reader:
             emb, _ = self.dh.load_pretrained_word_emb(self.config.pretrained_embed_path)
             _ = self.dh.get_local_word_embeddings(emb, words)
         else:
-            ####################Use Glove vocabulary
+            ####################Use original Glove vocabulary, but the space is large
             emb, words = self.dh.load_pretrained_word_emb(self.config.pretrained_embed_path)
             #Save word embeddings in binary format
             _ = self.dh.get_local_word_embeddings(emb, words)
@@ -636,14 +626,14 @@ class data_generator:
         '''
         Transform sentences into elmo, each sentence represented by words
         '''
-        token_list, mask_list, label_list, _, texts = zip(*triples)
+        token_list, mask_list, label_list, _, texts, targets = zip(*triples)
         sent_lens = [len(tokens) for tokens in token_list]
         sent_lens = torch.LongTensor(sent_lens)
         label_list = torch.LongTensor(label_list)
         max_len = max(sent_lens)
         batch_size = len(sent_lens)
         character_ids = batch_to_ids(token_list)
-        embeddings = elmo(character_ids)
+        embeddings = elmo(character_ids).detach()
         #batch_size*word_num * 1024
         sent_vecs = embeddings['elmo_representations'][0]
         #Padding the mask to same lengths
@@ -651,14 +641,14 @@ class data_generator:
         mask_vecs = torch.LongTensor(mask_vecs)
         for i, mask in enumerate(mask_list):
             mask_vecs[i, :len(mask)] = torch.LongTensor(mask)
-        return sent_vecs, mask_vecs, label_list, sent_lens, texts
+        return sent_vecs, mask_vecs, label_list, sent_lens, texts, targets
 
     
 
     def reset_samples(self):
         self.index = 0
 
-    def pad_data(self, sents, masks, labels, texts):
+    def pad_data(self, sents, masks, labels, texts, targets):
         '''
         Padding sentences to same size
         '''
@@ -675,14 +665,15 @@ class data_generator:
         #padding sent with PAD IDs
         sent_vecs = np.ones([batch_size, max_len]) * self.PAD_ID
         sent_vecs = torch.LongTensor(sent_vecs)
-        for i, s in enumerate(sents):
+        for i, s in enumerate(sents):#batch_size*max_len
             sent_vecs[i, :len(s)] = torch.LongTensor(s)
         sent_lens, perm_idx = sent_lens.sort(0, descending=True)
-        sent_vecs = sent_vecs[perm_idx]
+        sent_ids = sent_vecs[perm_idx]
         mask_vecs = mask_vecs[perm_idx]
         label_list = label_list[perm_idx]
-        tokens = [texts[i.item()] for i in perm_idx]
-        return sent_vecs, mask_vecs, label_list, sent_lens, tokens
+        texts = [texts[i.item()] for i in perm_idx]
+        targets = [targets[i.item()] for i in perm_idx]
+        return sent_ids, mask_vecs, label_list, sent_lens, texts, targets
 
     def get_ids_samples(self, is_balanced=False):
         '''
@@ -693,9 +684,10 @@ class data_generator:
                 samples = self.generate_balanced_sample(self.data_batch)
             else:
                 samples = self.generate_sample(self.data_batch)
-            tokens, mask_list, label_list, token_ids, texts = zip(*samples)
+            tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
             #Sorted according to the length
-            sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids,mask_list, label_list, texts)
+            sent_ids, mask_vecs, label_list, sent_lens, tokens, targets = self.pad_data(token_ids,mask_list, 
+                                                                                        label_list, texts, targets)
         else:
             if self.index == self.data_len:
                 print('Testing Over!')
@@ -706,16 +698,17 @@ class data_generator:
                 end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
                 self.index += self.config.batch_size
-                tokens, mask_list, label_list, token_ids, texts = zip(*samples)
+                tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
                 #Sorting happens here
-                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, texts)
+                sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids, mask_list, 
+                                                                                    label_list, texts, targets)
 
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index] 
-                tokens, mask_list, label_list, token_ids, texts = zip(*[samples])
-                sent_vecs, mask_vecs, label_list, sent_lens, tokens = self.pad_data(token_ids, mask_list, label_list, texts)
+                tokens, mask_list, label_list, token_ids, texts, targets = zip(*[samples])
+                sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids, mask_list, label_list, texts, targets)
                 self.index += 1
-        yield sent_vecs, mask_vecs, label_list, sent_lens, tokens
+        yield sent_ids, mask_vecs, label_list, sent_lens, texts, targets
 
     def get_elmo_samples(self, is_with_texts=False):
         '''
@@ -725,13 +718,14 @@ class data_generator:
         '''
         if self.is_training:
             samples = self.generate_sample(self.data_batch)
-            sent_vecs, mask_vecs, label_list, sent_lens, texts = self.elmo_transform(samples)
+            sent_vecs, mask_vecs, label_list, sent_lens, texts, targets = self.elmo_transform(samples)
             #Sort the lengths, and change orders accordingly
             sent_lens, perm_idx = sent_lens.sort(0, descending=True)
             sent_vecs = sent_vecs[perm_idx]
             mask_vecs = mask_vecs[perm_idx]
             label_list = label_list[perm_idx]
             texts = [texts[i.item()] for i in perm_idx]
+            targets = [targets[i.item()] for i in perm_idx]
         else:
             if self.index == self.data_len:
                 print('Testing Over!')
@@ -742,19 +736,20 @@ class data_generator:
                 end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
                 self.index += self.config.batch_size
-                sent_vecs, mask_vecs, label_list, sent_lens, texts = self.elmo_transform(samples)
+                sent_vecs, mask_vecs, label_list, sent_lens, texts, targets = self.elmo_transform(samples)
                 #Sort the lengths, and change orders accordingly
                 sent_lens, perm_idx = sent_lens.sort(0, descending=True)
                 sent_vecs = sent_vecs[perm_idx]
                 mask_vecs = mask_vecs[perm_idx]
                 label_list = label_list[perm_idx]
                 texts = [texts[i.item()] for i in perm_idx]
+                targets = [targets[i.item()] for i in perm_idx]
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index] 
-                sent_vecs, mask_vecs, label_list, sent_lens, texts = self.elmo_transform([samples])
+                sent_vecs, mask_vecs, label_list, sent_lens, texts, targets = self.elmo_transform([samples])
                 self.index += 1
         if is_with_texts:
-            yield sent_vecs, mask_vecs, label_list, sent_lens, texts
+            yield sent_vecs, mask_vecs, label_list, sent_lens, texts, targets
         else:
             yield sent_vecs, mask_vecs, label_list, sent_lens
 
