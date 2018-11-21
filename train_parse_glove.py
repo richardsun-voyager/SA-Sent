@@ -158,7 +158,9 @@ def train():
             target_indice = convert_mask_index(mask_vecs)#Get target indice
             max_len = max(sent_lens).item()
            #weights = get_dependency_weight(tokens, target_indice, max_len)#Get weights for each sentence
-            weights = get_context_weight(tokens, target_indice, max_len)
+            parse_weights = get_context_weight(tokens, target_indice, max_len)
+            dep_weights = get_dependency_weight(tokens, target_indice, max_len)
+            weights = parse_weights * dep_weights
             sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
                 sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()
@@ -219,7 +221,10 @@ def evaluate_test(dr_test, model):
         sent_vecs, mask_vecs, label_list, sent_lens, tokens = next(dr_test.get_ids_samples())
         target_indice = convert_mask_index(mask_vecs)#Get target indice
         max_len = max(sent_lens).item()
-        weights = get_context_weight(tokens, target_indice, max_len)#Get weights for each sentence
+
+        parse_weights = get_context_weight(tokens, target_indice, max_len)
+        dep_weights = get_dependency_weight(tokens, target_indice, max_len)
+        weights = parse_weights * dep_weights
         sent_vecs, target_avg = cat_layer(sent_vecs, mask_vecs)#Batch_size*max_len*(2*emb_size)
         if config.if_gpu: 
             sent_vecs, target_avg = sent_vecs.cuda(), target_avg.cuda()

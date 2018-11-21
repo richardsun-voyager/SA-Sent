@@ -55,12 +55,14 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
         Co = 128#kernel numbers
         Ks = [2, 3, 4]#kernel filter size
+        Kt = [2, 3]#kernel filter size for target words
 
         self.lstm = MLSTM(config)
 
         self.convs1 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
         self.convs2 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
-        self.convs3 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=K-2) for K in [3]])
+        self.convs3 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=K-2) for K in Kt])
+        self.fc_aspect = nn.Linear(len(Kt)*Co, Co)
 
         self.fc1 = nn.Linear(len(Ks)*Co, C)
         self.relu = nn.ReLU()
@@ -92,6 +94,8 @@ class CNN_Gate_Aspect_Text(nn.Module):
         masks = masks.expand(dim, batch_size, sent_len).transpose(0, 1).transpose(1, 2)
         target_emb = masks * context
         #Get embeddings for each target
+        if target_max_len<3:
+            target_max_len = 3
         target_embe_squeeze = torch.zeros(batch_size, target_max_len, dim)
         for i, index in enumerate(target_indices):
             target_embe_squeeze[i][:len(index)] = target_emb[i][index]
@@ -102,6 +106,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         target_conv = [self.relu(conv(target_embe_squeeze.transpose(1, 2))) for conv in self.convs3]  # [(N,Co,L), ...]*len(Ks)
         aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
+        aspect_v = self.fc_aspect(aspect_v)
         
         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
         y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]

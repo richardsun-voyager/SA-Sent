@@ -66,9 +66,12 @@ def train():
 
     #Load preprocessed data directly
     dr = data_reader(config)
+    #data1 = dr.load_data('data/generated_data/filename.xml.pkl')
+    data2 = dr.load_data('data/generated_data/samples.xml.pkl')
     train_data = dr.load_data(config.train_path)
+    train_data.extend(data2)
     valid_data = dr.load_data(config.valid_path)
-    test_data = dr.load_data(config.data_path+'Laptops_Test_Gold.xml.pkl')
+    test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
     print('Training Samples:', len(train_data))
     print('Validating Samples:', len(valid_data))
     print('Testing Samples:', len(test_data))

@@ -5,8 +5,8 @@ from stanfordcorenlp import StanfordCoreNLP
 stfnlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
 # import spacy
 # spanlp = spacy.load('en')
-import en_core_web_sm
-spanlp = en_core_web_sm.load()
+# import en_core_web_sm
+# spanlp = en_core_web_sm.load()
 class dependency_path:
     def __init__(self, text=None):
         self.text = text
@@ -17,11 +17,17 @@ class dependency_path:
         '''
         document = spanlp(text)
         edges = []
-        for token in document:
-            # FYI https://spacy.io/docs/api/token
-            for child in token.children:
-                edges.append(('{0}-{1}'.format(token.lower_,token.i),
-                            '{0}-{1}'.format(child.lower_,child.i)))
+#         for token in document:
+#             # FYI https://spacy.io/docs/api/token
+#             for child in token.children:
+#                 edges.append(('{0}-{1}'.format(token.lower_,token.i),
+#                             '{0}-{1}'.format(child.lower_,child.i)))
+        
+        document = nlp.dependency_parse(sentence)
+        words = nlp.word_tokenize(sentence)
+        for item in document:
+            edges.append(('{0}-{1}'.format(words[item[1]-1],item[1]-1),
+                             '{0}-{1}'.format(words[item[2]-1],item[2]-1)))
         graph = nx.Graph(edges)
         return graph
 
@@ -47,7 +53,7 @@ class dependency_path:
         # nodes = [nodes[i] for i in indice]
         # node_num = len(nodes)
         #mat = np.ones([word_num, word_num]) * 1000
-        mat = (1-np.identity(word_num)) * 1000
+        mat = (1-np.identity(word_num)) * 100
         #Calculate the path for each node pair
         for i in np.arange(len(nodes)-1):
             for j in np.arange(i+1, len(nodes)):
@@ -89,6 +95,7 @@ class dependency_path:
 class constituency_path:
     def __init__(self):
         self.index = None
+        self.max_depth = 15
 
     def build_parser(self, text):
         '''
@@ -115,6 +122,17 @@ class constituency_path:
             pos = parsed_sent.leaf_treeposition(i)
             positions.append(pos)
         return positions
+    
+    def get_parse_feature(self, positions):
+        parse_features = []
+        for pos in positions:
+            pos = list(pos)
+            if len(pos) >= self.max_depth:
+                pos = pos[:self.max_depth]
+            else:
+                pos += [-1] * (self.max_depth - len(pos))
+            parse_features.append(pos)
+        return parse_features
 
 
     def compute_node_distance(self, pos1, pos2):
@@ -155,7 +173,7 @@ class constituency_path:
         for i, node in enumerate(target_nodes):
             target_weights[i] = np.array(self.compute_target_distance(positions, node))
             #target_weights[i] /= sum(target_weights[i])
-            target_weights[i] = np.exp(-target_weights[i]**2/10)
+            target_weights[i] = np.exp(-target_weights[i]**1.5/10)
         max_target_weight = target_weights.max(0)
         min_target_weight = target_weights.min(0)
         avg_target_weight = target_weights.mean(0)
