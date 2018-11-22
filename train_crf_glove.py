@@ -9,7 +9,7 @@ from Layer import SimpleCat
 import numpy as np
 import codecs
 import copy
-import os
+import os, sys
 from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix
 torch.manual_seed(222)
 def adjust_learning_rate(optimizer, epoch):
@@ -54,6 +54,12 @@ def train():
     cat_layer.load_vector()
 
     model = AspectSent(config)
+#     model = torch.load('data/models/crf_glove_model.pt')
+#     dg_train = data_generator(config, train_data, False)
+#     evaluate_test(dg_train, model)
+    
+#     sys.exit()
+    
 
     if config.if_gpu: model = model.cuda()
     parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
@@ -72,8 +78,8 @@ def train():
             adjust_learning_rate(optimizer, e_)
 
         for _ in np.arange(loops):
-            model.zero_grad() 
-            sent_vecs, mask_vecs, label_list, sent_lens, _ = next(dg_train.get_ids_samples())
+            optimizer.zero_grad() 
+            sent_vecs, mask_vecs, label_list, sent_lens, _, _ = next(dg_train.get_ids_samples())
             sent_vecs = cat_layer(sent_vecs, mask_vecs, False)#Batch_size*max_len*(2*emb_size)
             if config.if_gpu: 
                 sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
@@ -87,7 +93,7 @@ def train():
             #print("cls loss {0} regularizrion loss {1}".format(cls_loss.item(), l2_loss.item()))
             #cls_loss += l2_loss * 0.005
             cls_loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.clip_norm, norm_type=2)
+            torch.nn.utils.clip_grad_norm_(parameters, config.clip_norm, norm_type=2)
             optimizer.step()
 
         valid_acc = evaluate_test(dg_valid, model)
@@ -125,21 +131,24 @@ def evaluate_test(dr_test, model):
     print("Evaluting")
     dr_test.reset_samples()
     model.eval()
-    all_counter = 0
+    all_counter = dr_test.data_len
     correct_count = 0
-    true_labels = [item[2] for item in dr_test.data_batch]
+    true_labels = []
     pred_labels = []
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, _ = next(dr_test.get_ids_samples())
-        sent = cat_layer(sent, mask, False)
+        #The data may be ordered
+        sent, mask, label, sent_len, _, _ = next(dr_test.get_ids_samples())
+        sent_vecs = cat_layer(sent, mask, False)
         if config.if_gpu: 
-            sent, mask = sent.cuda(), mask.cuda()
+            sent_vecs, mask = sent_vecs.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()
-        pred_label, _  = model.predict(sent, mask, sent_len) 
+        pred_label, _  = model.predict(sent_vecs, mask, sent_len) 
         #Record the testing label
-        pred_labels.extend(pred_label.numpy())
+        pred_labels.extend(pred_label.cpu().numpy())
+        true_labels.extend(label.cpu().numpy())
 
-        correct_count += sum(pred_label==label).item()
+        correct_count += sum(pred_label==label).cpu().item()
+        #print(correct_count)
     if dr_test.data_len < 1:
         print('Testing Data Error')
     acc = correct_count * 1.0 / dr_test.data_len
@@ -153,7 +162,7 @@ def generate_simple_logits(dr_test, model):
     model.eval()
     logits_record = []
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, _ = next(dr_test.get_ids_samples())
+        sent, mask, label, sent_len, _, _ = next(dr_test.get_ids_samples())
         sent, target = cat_layer(sent, mask, False)
         if config.if_gpu: 
             sent, mask = sent.cuda(), mask.cuda()

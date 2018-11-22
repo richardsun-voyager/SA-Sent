@@ -83,6 +83,8 @@ class SimpleCat(nn.Module):
         '''
         #Modified by Richard Sun
         #Use ELmo embedding, note we need padding
+        sent = Variable(sent)
+        mask = Variable(mask)
 
         #Use GloVe embedding
         if self.config.if_gpu:  

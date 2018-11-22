@@ -9,7 +9,7 @@ class Config():
         self.embed_num = 5120
         #For elmo the emb_size is 1024
         self.embed_dim = 300#1024#300
-        self.mask_dim = 50
+        self.mask_dim = 30
         self.if_update_embed = True
 
         # lstm
@@ -20,13 +20,13 @@ class Config():
 
         # penlaty
         self.C1 = 0.1
-        self.C2 = 0.001
+        self.C2 = 0.1
         self.if_reset = True
 
         self.opt = "Adam"
         self.dropout = 0.5
         self.epoch = 30
-        self.lr = 0.0001
+        self.lr = 0.01
         self.l2 = 0.0
         self.adjust_every = 8
         self.clip_norm = 3
@@ -41,7 +41,7 @@ class Config():
         # self.dic_path = "data/2014/dic.pkl"
 
         #################Restaurant
-        self.pretrained_embed_path = "../data/word_embeddings/glove.6B.300d.txt"
+        self.pretrained_embed_path = "../data/word_embeddings/glove.840B.300d.txt"
         self.embed_path = "data/restaurant/vocab/local_emb.pkl"
         self.data_path = "data/restaurant/"
         self.train_path = "data/restaurant/train.pkl"

@@ -180,6 +180,7 @@ class dataHelper():
                     target_tokens = self.stanford_tokenize(target)
                 else:
                     target_tokens = self.tokenize(target)
+                    
                 #If no targets specified, skip
                 if len(target_tokens) < 1:
                     print('No target')
@@ -188,7 +189,6 @@ class dataHelper():
                 
                 #Find the position of the target, i.e, 
                 #"I saw the black dog and a white dog stand there, what a lovely black dog, so black !"
-                index = []
                 sent_tokens = np.array(sent_tokens)
                 target_start = target_tokens[0]
                 target_end = target_tokens[-1]
@@ -218,6 +218,7 @@ class dataHelper():
             #update the data
             sent_inst = sent_inst._replace(opinions = opinion_list)
             data[sent_i] = sent_inst
+            #print('Raw data tokenized')
 
         return data, text_words
 
@@ -399,6 +400,7 @@ class dataHelper():
                 pair_couter[polarity] += 1
                 
         print(pair_couter)
+        return all_triples
 
 
 
@@ -686,7 +688,7 @@ class data_generator:
                 samples = self.generate_sample(self.data_batch)
             tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
             #Sorted according to the length
-            sent_ids, mask_vecs, label_list, sent_lens, tokens, targets = self.pad_data(token_ids,mask_list, 
+            sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids,mask_list, 
                                                                                         label_list, texts, targets)
         else:
             if self.index == self.data_len:
@@ -697,17 +699,19 @@ class data_generator:
                 start = self.index
                 end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
-                self.index += self.config.batch_size
+                self.index = end
                 tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
                 #Sorting happens here
                 sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids, mask_list, 
                                                                                     label_list, texts, targets)
 
             else:#Then generate testing data one by one
-                samples =  self.data_batch[self.index] 
-                tokens, mask_list, label_list, token_ids, texts, targets = zip(*[samples])
+                samples =  self.data_batch[self.index:] 
+                if self.index == self.data_len - 1:#if only one sample left
+                    samples = [samples]
+                tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
                 sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids, mask_list, label_list, texts, targets)
-                self.index += 1
+                self.index += len(samples)
         yield sent_ids, mask_vecs, label_list, sent_lens, texts, targets
 
     def get_elmo_samples(self, is_with_texts=False):

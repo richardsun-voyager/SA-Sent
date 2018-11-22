@@ -125,22 +125,29 @@ def evaluate_test(dr_test, model):
     print("Evaluting")
     dr_test.reset_samples()
     model.eval()
-    all_counter = 0
+    all_counter = dr_test.data_len
     correct_count = 0
-    print("transitions matrix ", model.inter_crf.transitions.data)
+    true_labels = []
+    pred_labels = []
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
-        sent = cat_layer(sent, mask)
+        #The data may be ordered
+        sent, mask, label, sent_len, _, _ = next(dr_test.get_elmo_samples())
+        sent_vecs = cat_layer(sent, mask, False)
         if config.if_gpu: 
-            sent, mask = sent.cuda(), mask.cuda()
+            sent_vecs, mask = sent_vecs.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()
-        pred_label, best_seq = model.predict(sent, mask, sent_len) 
-        #visualize(sent, mask, best_seq, pred_label, label)
+        pred_label, _  = model.predict(sent_vecs, mask, sent_len) 
+        #Record the testing label
+        pred_labels.extend(pred_label.cpu().numpy())
+        true_labels.extend(label.cpu().numpy())
 
-        correct_count += sum(pred_label==label).item()
-            
+        correct_count += sum(pred_label==label).cpu().item()
+        #print(correct_count)
+    if dr_test.data_len < 1:
+        print('Testing Data Error')
     acc = correct_count * 1.0 / dr_test.data_len
-    print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    print(confusion_matrix(true_labels, pred_labels))
+    print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
 

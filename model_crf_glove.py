@@ -14,34 +14,11 @@ import math
 from torch.nn import utils as nn_utils
 from util import *
 
-
 def init_ortho(module):
     for weight_ in module.parameters():
         if len(weight_.size()) == 2:
             init.orthogonal_(weight_)
-class LSTM(nn.Module):
-    def __init__(self, config):
-        super(LSTM, self).__init__()
-        self.config = config
 
-        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, config.l_hidden_size, batch_first=True, num_layers = int(config.l_num_layers / 2),
-            bidirectional=False, dropout=config.l_dropout)
-        init_ortho(self.rnn)
-
-    # batch_size * sent_l * dim
-    def forward(self, feats, seq_lengths=None):
-        '''
-        Args:
-        feats: batch_size, max_len, emb_dim
-        seq_lengths: batch_size
-        '''
-        pack = nn_utils.rnn.pack_padded_sequence(feats, 
-                                                 seq_lengths, batch_first=True)
-        
-        #batch_size*max_len*hidden_dim
-        lstm_out, (h, c) = self.rnn(pack)
-        #batch_size*emb_dim
-        return h[0]
             
 class biLSTM(nn.Module):
     def __init__(self, config):
@@ -49,7 +26,7 @@ class biLSTM(nn.Module):
         self.config = config
 
         self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
-            bidirectional=True, dropout=config.l_dropout)
+            bidirectional=True)
         init_ortho(self.rnn)
 
     # batch_size * sent_l * dim
@@ -80,13 +57,14 @@ class AspectSent(nn.Module):
         self.config = config
 
         self.bilstm = biLSTM(config)
-        self.lstm = LSTM(config)
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
         self.inter_crf = LinearCRF(config)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
 
-        self.cri = nn.CrossEntropyLoss()
         self.loss = nn.NLLLoss()
+        
+        self.tanh = nn.Tanh()
+        self.dropout = nn.Dropout(0.3)
         #Modified by Richard Sun
 
     
@@ -98,23 +76,10 @@ class AspectSent(nn.Module):
         lens: batch_size
         '''
         batch_size, max_len, _ = sents.size()
-        #batch_size*target_len*emb_dim
-        target_embe_squeeze, target_lens = self.get_target_emb(masks, sents)
-        
-        
-        #Get rnn output of target words
-        target_emb_hiddens = []
-        for i, target in enumerate(target_embe_squeeze):
-            traget_hidden = self.lstm(target.unsqueeze(0), [target_lens[i]])
-            target_emb_hiddens.append(traget_hidden)
-        #output: batch_size*hidden_dim 
-        target_emb_hiddens = torch.cat(target_emb_hiddens)
-        
-        dim = target_emb_hiddens.size(1)
+
         context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
-        context = context + target_emb_hiddens.expand(max_len, batch_size, dim).transpose(0, 1)
         
-        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        tri_scores = self.tanh(self.feat2tri(context)) #Batch_size*sent_len*2
         
         #Take target embedding into consideration
         
@@ -142,9 +107,6 @@ class AspectSent(nn.Module):
             marginals.append(marginal)
         
         label_scores = torch.stack(label_scores)
-        #select_polarities = torch.stack(select_polarities)
-        #marginals = torch.stack(marginals)
-        #print('Label Score', label_scores.size())
 
         return label_scores, select_polarities
 
@@ -158,23 +120,8 @@ class AspectSent(nn.Module):
 
         batch_size, max_len, _ = sents.size()
         #batch_size*target_len*emb_dim
-        target_embe_squeeze, target_lens = self.get_target_emb(masks, sents)
-        
-        
-        #Get rnn output of target words
-        target_emb_hiddens = []
-        for i, target in enumerate(target_embe_squeeze):
-            traget_hidden = self.lstm(target.unsqueeze(0), [target_lens[i]])
-            target_emb_hiddens.append(traget_hidden)
-        #output: batch_size*hidden_dim 
-        target_emb_hiddens = torch.cat(target_emb_hiddens)
-        
-        dim = target_emb_hiddens.size(1)
-        context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
-        context = context + target_emb_hiddens.expand(max_len, batch_size, dim).transpose(0, 1)
-        
-        
-        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
+        tri_scores = self.feat2tri(context) #Batch_size*max_len*2
         
         marginals = []
         select_polarities = []
@@ -214,12 +161,13 @@ class AspectSent(nn.Module):
 
         #scores: batch_size*label_size
         #s_prob:batch_size*sent_len
+        sents = self.dropout(sents)#regularization
         scores, s_prob  = self.compute_scores(sents, masks, lens)
         s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
 
         pena = F.relu( self.inter_crf.transitions[1,0] - self.inter_crf.transitions[0,0]) + \
             F.relu(self.inter_crf.transitions[0,1] - self.inter_crf.transitions[1,1])
-        norm_pen = self.config.C1 * pena + self.config.C2 * s_prob_norm 
+        norm_pen = self.config.C1 * pena/self.config.batch_size + self.config.C2 * s_prob_norm 
 
         scores = F.log_softmax(scores, dim=1)#Batch_size*label_size
         
@@ -237,44 +185,3 @@ class AspectSent(nn.Module):
         #Modified by Richard Sun
         return pred_label, best_seqs
     
-    def get_target_emb(self, masks, context):
-        '''
-        Get the embeddings of targets
-        '''
-        batch_size, sent_len, dim = context.size()
-        #Find target indices, a list of indices
-        target_indices, target_max_len = convert_mask_index(masks)
-        target_lens = [len(index) for index in target_indices]
-        target_lens = torch.LongTensor(target_lens)
-
-        #Find the target context embeddings, batch_size*max_len*hidden_size
-        masks = masks.type_as(context)
-        masks = masks.expand(dim, batch_size, sent_len).transpose(0, 1).transpose(1, 2)
-        target_emb = masks * context
-        #Get embeddings for each target
-        if target_max_len<3:
-            target_max_len = 3
-        target_embe_squeeze = torch.zeros(batch_size, target_max_len, dim)
-        for i, index in enumerate(target_indices):
-            target_embe_squeeze[i][:len(index)] = target_emb[i][index]
-        if self.config.if_gpu: 
-            target_embe_squeeze = target_embe_squeeze.cuda()
-            target_lens = target_lens.cuda()
-        return target_embe_squeeze, target_lens
-            
-def convert_mask_index(masks):
-    '''
-    Find the indice of none zeros values in masks, namely the target indice
-    '''
-    target_indice = []
-    max_len = 0
-    try:
-        for mask in masks:
-            indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
-            if max_len < len(indice):
-                max_len = len(indice)
-            target_indice.append(indice)
-    except:
-        print('Mask Data Error')
-        print(mask)
-    return target_indice, max_len

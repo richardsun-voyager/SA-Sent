@@ -19,13 +19,36 @@ def init_ortho(module):
     for weight_ in module.parameters():
         if len(weight_.size()) == 2:
             init.orthogonal_(weight_)
-
-class MLSTM(nn.Module):
+class LSTM(nn.Module):
     def __init__(self, config):
-        super(MLSTM, self).__init__()
+        super(LSTM, self).__init__()
         self.config = config
 
-        self.rnn = nn.LSTM(config.embed_dim+config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, config.l_hidden_size, batch_first=True, num_layers = int(config.l_num_layers / 2),
+            bidirectional=False, dropout=config.l_dropout)
+        init_ortho(self.rnn)
+
+    # batch_size * sent_l * dim
+    def forward(self, feats, seq_lengths=None):
+        '''
+        Args:
+        feats: batch_size, max_len, emb_dim
+        seq_lengths: batch_size
+        '''
+        pack = nn_utils.rnn.pack_padded_sequence(feats, 
+                                                 seq_lengths, batch_first=True)
+        
+        #batch_size*max_len*hidden_dim
+        lstm_out, (h, c) = self.rnn(pack)
+        #batch_size*emb_dim
+        return h[0]
+            
+class biLSTM(nn.Module):
+    def __init__(self, config):
+        super(biLSTM, self).__init__()
+        self.config = config
+
+        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -36,110 +59,151 @@ class MLSTM(nn.Module):
         feats: batch_size, max_len, emb_dim
         seq_lengths: batch_size
         '''
-        #FIXIT: doesn't have batch
-        #Sort the lengths
-        # seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-        # feats = feats[perm_idx]
-        #feats = feats.unsqueeze(0)
         pack = nn_utils.rnn.pack_padded_sequence(feats, 
                                                  seq_lengths, batch_first=True)
         
-        
-        #assert self.batch_size == batch_size
+        #batch_size*max_len*hidden_dim
         lstm_out, _ = self.rnn(pack)
-        #lstm_out, (hid_states, cell_states) = self.rnn(feats)
-
         #Unpack the tensor, get the output for varied-size sentences
+        #padding with zeros
         unpacked, _ = nn_utils.rnn.pad_packed_sequence(lstm_out, batch_first=True)
-
-        #FIXIT: for batch
-        #lstm_out = lstm_out.squeeze(0)
         # batch * sent_l * 2 * hidden_states 
         return unpacked
 
 # consits of three components
 class AspectSent(nn.Module):
     def __init__(self, config):
+        '''
+        LSTM+Aspect
+        '''
         super(AspectSent, self).__init__()
         self.config = config
-        #self.cat_layer = SimpleCat(config)
 
-        self.lstm = MLSTM(config)
-        # #with lstm layer
-        # self.feat2tri = nn.Linear(config.l_hidden_size, 2)
-        # self.inter_crf = LinearCRF(config)#CRF
-        # self.feat2label = nn.Linear(config.l_hidden_size, 3)
-
-        #WIthout lstm layer
-        #self.elmo2lower = nn.Linear(config.embed_dim+config.mask_dim, config.l_hidden_size)
+        self.bilstm = biLSTM(config)
+        self.lstm = LSTM(config)
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
-        self.inter_crf = LinearCRF(config)#CRF
+        self.inter_crf = LinearCRF(config)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
 
         self.cri = nn.CrossEntropyLoss()
+        self.loss = nn.NLLLoss()
         #Modified by Richard Sun
-        #If we use Elmo, don't load GloVec
-        #self.cat_layer.load_vector()
-
-        #if not config.if_update_embed:  self.cat_layer.word_embed.weight.requires_grad = False
 
     
-    def compute_scores(self, sent, mask, lens):
-        #if self.config.if_reset:  self.cat_layer.reset_binary()
+    def compute_scores(self, sents, masks, lens):
+        '''
+        Args:
+        sents: batch_size*max_len*word_dim
+        masks: batch_size*max_len
+        lens: batch_size
+        '''
+        batch_size, max_len, _ = sents.size()
+        #batch_size*target_len*emb_dim
+        target_embe_squeeze, target_lens = self.get_target_emb(masks, sents)
+        
+        
+        #Get rnn output of target words
+        target_emb_hiddens = []
+        for i, target in enumerate(target_embe_squeeze):
+            traget_hidden = self.lstm(target.unsqueeze(0), [target_lens[i]])
+            target_emb_hiddens.append(traget_hidden)
+        #output: batch_size*hidden_dim 
+        target_emb_hiddens = torch.cat(target_emb_hiddens)
+        
+        dim = target_emb_hiddens.size(1)
+        context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
+        context = context + target_emb_hiddens.expand(max_len, batch_size, dim).transpose(0, 1)
+        
+        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        
+        #Take target embedding into consideration
+        
+        
+        
+        marginals = []
+        select_polarities = []
+        label_scores = []
+        #Sentences have different lengths, so deal with them one by one
+        for i, tri_score in enumerate(tri_scores):
+            sent_len = lens[i].cpu().item()
+            if sent_len > 1:
+                tri_score = tri_score[:sent_len, :]#sent_len, 2
+            else:
+                print('Too short sentence')
+            marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
+            #Get only the positive latent factor
+            select_polarity = marginal[:, 1]#sent_len, select only positive ones
 
-        #context = sent#batch_size*max_len*emb_dim
-
-        context = self.lstm(sent, lens)#Batch_size*sent_len*hidden_dim
-        #print('After lstm:', context.size())
-
-        # feat_context = torch.cat([context, asp_v], 1) # sent_len * dim_sum
-        feat_context = context  # batch_size*sent_len * hidden_dim
-        tri_scores = self.feat2tri(feat_context) #Batch_size*sent_len*2
-        marginals = self.inter_crf(tri_scores)#Batch_size*sent_len*2
-        #Get only the positive latent factor
-        select_polarity = marginals[:, :, 1]#batch_size*sent_len, select only positive ones
-
-        marginals = marginals.transpose(1,2)  # batch_size*2 * sent_len
-        sent_v = torch.bmm(select_polarity.unsqueeze(1), context) # batch_size * 1*feat_dim
-        label_scores = self.feat2label(sent_v).squeeze(1)
-
+            marginal = marginal.transpose(0, 1)  # 2 * sent_len
+            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+            label_score = self.feat2label(sent_v).squeeze(0)#label_size
+            label_scores.append(label_score)
+            select_polarities.append(select_polarity)
+            marginals.append(marginal)
+        
+        label_scores = torch.stack(label_scores)
+        #select_polarities = torch.stack(select_polarities)
+        #marginals = torch.stack(marginals)
         #print('Label Score', label_scores.size())
 
-        return label_scores, select_polarity, marginals
+        return label_scores, select_polarities
 
-    def compute_predict_scores(self, sent, mask, lens):
-        #if self.config.if_reset:  self.cat_layer.reset_binary()
+    def compute_predict_scores(self, sents, masks, lens):
+        '''
+        Args:
+        sents: batch_size*max_len*word_dim
+        masks: batch_size*max_len
+        lens: batch_size
+        '''
 
-        #context = self.elmo2lower(sent)
+        batch_size, max_len, _ = sents.size()
+        #batch_size*target_len*emb_dim
+        target_embe_squeeze, target_lens = self.get_target_emb(masks, sents)
+        
+        
+        #Get rnn output of target words
+        target_emb_hiddens = []
+        for i, target in enumerate(target_embe_squeeze):
+            traget_hidden = self.lstm(target.unsqueeze(0), [target_lens[i]])
+            target_emb_hiddens.append(traget_hidden)
+        #output: batch_size*hidden_dim 
+        target_emb_hiddens = torch.cat(target_emb_hiddens)
+        
+        dim = target_emb_hiddens.size(1)
+        context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
+        context = context + target_emb_hiddens.expand(max_len, batch_size, dim).transpose(0, 1)
+        
+        
+        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        
+        marginals = []
+        select_polarities = []
+        label_scores = []
+        best_latent_seqs = []
+        #Sentences have different lengths, so deal with them one by one
+        for i, tri_score in enumerate(tri_scores):
+            sent_len = lens[i].cpu().item()
+            if sent_len > 1:
+                tri_score = tri_score[:sent_len, :]#sent_len, 2
+            else:
+                print('Too short sentence')
+            marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
+            best_latent_seq = self.inter_crf.predict(tri_score)#sent_len
+            #Get only the positive latent factor
+            select_polarity = marginal[:, 1]#sent_len, select only positive ones
 
-        context = self.lstm(sent, lens)
-        #Modified by Richard Sun
-        # feat_context = torch.cat([context, asp_v], 1) # sent_len * dim_sum
-        feat_context = context  # batch_size*sent_len * hidden_dim
-        tri_scores = self.feat2tri(feat_context) #Batch_size*sent_len*2
-        #print('model: tri_scores', tri_scores.size())
-        marginals = self.inter_crf(tri_scores)#Batch_size*sent_len*2
-        #Get only the positive latent factor
-        select_polarity = marginals[:, :, 1]#batch_size*sent_len, select only positive ones
+            marginal = marginal.transpose(0, 1)  # 2 * sent_len
+            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i][:sent_len]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+            label_score = self.feat2label(sent_v).squeeze(0)#label_size
+            label_scores.append(label_score)
+            best_latent_seqs.append(best_latent_seq)
+        
+        label_scores = torch.stack(label_scores)
 
-        marginals = marginals.transpose(1,2)  # batch_size*2 * sent_len
-        sent_v = torch.bmm(select_polarity.unsqueeze(1), context) # batch_size * 1*feat_dim
-        label_scores = self.feat2label(sent_v).squeeze(1)
-
-        # # feat_context = torch.cat([context, asp_v], 1) # sent_len * dim_sum
-        # feat_context = context  # sent_len * dim_sum
-        # tri_scores = self.feat2tri(feat_context)
-        # marginals = self.inter_crf(tri_scores)
-        # select_polarity = marginals[:,1]
-        # sent_v = torch.mm(select_polarity.unsqueeze(0), context) # 1 * feat_dim
-        # label_scores = self.feat2label(sent_v).squeeze(0)
-
-        best_seqs = self.inter_crf.predict(tri_scores)
-
-        return label_scores, select_polarity, best_seqs
+        return label_scores, best_latent_seqs
 
     
-    def forward(self, sent, mask, label, lens):
+    def forward(self, sents, masks, labels, lens):
         '''
         inputs are list of list for the convenince of top CRF
         Args:
@@ -147,31 +211,70 @@ class AspectSent(nn.Module):
         mask: a list of mask for each sentence, batch_size*len
         label: a list labels
         '''
-        # scores = self.compute_scores(sents, ents, asps, labels)
+
         #scores: batch_size*label_size
         #s_prob:batch_size*sent_len
-        #marginal_prob:batch_size*2 * sent_len
-        sent = F.dropout(sent, p=0.3, training=self.train)#Dropout
-        scores, s_prob, marginal_prob = self.compute_scores(sent, mask, lens)
-
+        scores, s_prob  = self.compute_scores(sents, masks, lens)
+        s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
 
         pena = F.relu( self.inter_crf.transitions[1,0] - self.inter_crf.transitions[0,0]) + \
             F.relu(self.inter_crf.transitions[0,1] - self.inter_crf.transitions[1,1])
-        norm_pen = ( self.config.C1 * pena + self.config.C2 * s_prob.norm(1) ) / self.config.batch_size
+        norm_pen = self.config.C1 * pena + self.config.C2 * s_prob_norm 
 
         scores = F.log_softmax(scores, dim=1)#Batch_size*label_size
-        loss = nn.NLLLoss()
-        #cls_loss = -1 * torch.log(scores[label])
-        cls_loss = loss(scores, label)
+        
+        cls_loss = self.loss(scores, labels)
 
-        #print('Transition', pena)
+        print('Transition', pena)
 
         print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
         return cls_loss + norm_pen 
 
     def predict(self, sent, mask, sent_len):
-        scores, s_probs, best_seqs = self.compute_predict_scores(sent, mask, sent_len)
+        scores, best_seqs = self.compute_predict_scores(sent, mask, sent_len)
         _, pred_label = scores.max(1)    
         
         #Modified by Richard Sun
         return pred_label, best_seqs
+    
+    def get_target_emb(self, masks, context):
+        '''
+        Get the embeddings of targets
+        '''
+        batch_size, sent_len, dim = context.size()
+        #Find target indices, a list of indices
+        target_indices, target_max_len = convert_mask_index(masks)
+        target_lens = [len(index) for index in target_indices]
+        target_lens = torch.LongTensor(target_lens)
+
+        #Find the target context embeddings, batch_size*max_len*hidden_size
+        masks = masks.type_as(context)
+        masks = masks.expand(dim, batch_size, sent_len).transpose(0, 1).transpose(1, 2)
+        target_emb = masks * context
+        #Get embeddings for each target
+        if target_max_len<3:
+            target_max_len = 3
+        target_embe_squeeze = torch.zeros(batch_size, target_max_len, dim)
+        for i, index in enumerate(target_indices):
+            target_embe_squeeze[i][:len(index)] = target_emb[i][index]
+        if self.config.if_gpu: 
+            target_embe_squeeze = target_embe_squeeze.cuda()
+            target_lens = target_lens.cuda()
+        return target_embe_squeeze, target_lens
+            
+def convert_mask_index(masks):
+    '''
+    Find the indice of none zeros values in masks, namely the target indice
+    '''
+    target_indice = []
+    max_len = 0
+    try:
+        for mask in masks:
+            indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
+            if max_len < len(indice):
+                max_len = len(indice)
+            target_indice.append(indice)
+    except:
+        print('Mask Data Error')
+        print(mask)
+    return target_indice, max_len
