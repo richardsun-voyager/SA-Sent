@@ -10,13 +10,13 @@ from Layer import SimpleCat
 import numpy as np
 from torch.nn import utils as nn_utils
 from util import *
-
+__all__ = ['AspectSent']
 def init_ortho(module):
     for weight_ in module.parameters():
         if len(weight_.size()) == 2:
             init.orthogonal_(weight_)
 
-            
+
 class biLSTM(nn.Module):
     def __init__(self, config):
         super(biLSTM, self).__init__()
@@ -33,15 +33,15 @@ class biLSTM(nn.Module):
         feats: batch_size, max_len, emb_dim
         seq_lengths: batch_size
         '''
-        pack = nn_utils.rnn.pack_padded_sequence(feats, 
+        pack = nn_utils.rnn.pack_padded_sequence(feats,
                                                  seq_lengths, batch_first=True)
-        
+
         #batch_size*max_len*hidden_dim
         lstm_out, _ = self.rnn(pack)
         #Unpack the tensor, get the output for varied-size sentences
         #padding with zeros
         unpacked, _ = nn_utils.rnn.pad_packed_sequence(lstm_out, batch_first=True)
-        # batch * sent_l * 2 * hidden_states 
+        # batch * sent_l * 2 * hidden_states
         return unpacked
 
 # consits of three components
@@ -59,13 +59,13 @@ class AspectSent(nn.Module):
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
 
         self.loss = nn.NLLLoss()
-        
+
         self.tanh = nn.Tanh()
         self.dropout = nn.Dropout(0.3)
         #Modified by Richard Sun
         self.cat_layer = SimpleCat(config)
 
-    
+
     def compute_scores(self, sents, masks, lens):
         '''
         Args:
@@ -76,13 +76,13 @@ class AspectSent(nn.Module):
         batch_size, max_len, _ = sents.size()
 
         context = self.bilstm(sents, lens)#batch_size*max_len*dim
-        
+
         tri_scores = self.tanh(self.feat2tri(context)) #Batch_size*sent_len*2
-        
+
         #Take target embedding into consideration
-        
-        
-        
+
+
+
         marginals = []
         select_polarities = []
         label_scores = []
@@ -103,7 +103,7 @@ class AspectSent(nn.Module):
             label_scores.append(label_score)
             select_polarities.append(select_polarity)
             marginals.append(marginal)
-        
+
         label_scores = torch.stack(label_scores)
 
         return label_scores, select_polarities
@@ -120,7 +120,7 @@ class AspectSent(nn.Module):
         #batch_size*target_len*emb_dim
         context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
         tri_scores = self.feat2tri(context) #Batch_size*max_len*2
-        
+
         marginals = []
         select_polarities = []
         label_scores = []
@@ -142,12 +142,12 @@ class AspectSent(nn.Module):
             label_score = self.feat2label(sent_v).squeeze(0)#label_size
             label_scores.append(label_score)
             best_latent_seqs.append(best_latent_seq)
-        
+
         label_scores = torch.stack(label_scores)
 
         return label_scores, best_latent_seqs
 
-    
+
     def forward(self, sents, masks, labels, lens):
         '''
         inputs are list of list for the convenince of top CRF
@@ -166,22 +166,22 @@ class AspectSent(nn.Module):
 
         pena = F.relu( self.inter_crf.transitions[1,0] - self.inter_crf.transitions[0,0]) + \
             F.relu(self.inter_crf.transitions[0,1] - self.inter_crf.transitions[1,1])
-        norm_pen = self.config.C1 * pena/self.config.batch_size + self.config.C2 * s_prob_norm 
+        norm_pen = self.config.C1 * pena/self.config.batch_size + self.config.C2 * s_prob_norm
 
         scores = F.log_softmax(scores, dim=1)#Batch_size*label_size
-        
+
         cls_loss = self.loss(scores, labels)
 
         print('Transition', pena)
 
         print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
-        return cls_loss + norm_pen 
+        return cls_loss + norm_pen
 
     def predict(self, sents, masks, sent_lens):
         sents = self.cat_layer(sents, masks, True)
         scores, best_seqs = self.compute_predict_scores(sents, masks, sent_lens)
-        _, pred_label = scores.max(1)    
-        
+        _, pred_label = scores.max(1)
+
         #Modified by Richard Sun
         return pred_label, scores, best_seqs
-    
+

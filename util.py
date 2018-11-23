@@ -50,13 +50,22 @@ class AverageMeter(object):
 
 
 def save_checkpoint(state, is_best, filenname = ''):
-    torch.save(state, filename + 'checkpoint.pth.tar'):
+    torch.save(state, filename + 'checkpoint.pth.tar')
     if is_best:
         shutil.copyfile(filename + 'checkpoint.pth.tar', filename + 'model_best.pth.tar')
 
 
-
-
+def create_logger(name, log_file, level=logging.INFO):
+    l = logging.getLogger(name)
+    formatter = logging.Formatter('[%(asctime)s][%(filename)15s][line:%(lineno)4d] %(message)s')
+    fh = logging.FileHandler(log_file)
+    fh.setFormatter(formatter)
+    sh = logging.SteamHandler()
+    sh.setFormatter(formatter)
+    l.setLevel(level)
+    l.addHandler(fh)
+    l.addHandler(sh)
+    return l
 # the input is 2d dim tensor
 # output 1d tensor
 def argmax_m(mat):
