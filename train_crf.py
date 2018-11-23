@@ -1,24 +1,26 @@
 #!/usr/bin/python
 from __future__ import division
-from data_reader_general import data_reader
+import torch
+from data_reader_general import data_reader, data_generator
 import pickle
 import numpy as np
 import codecs
 import copy
 import os
 from Layer import SimpleCat
+import models
 from util import create_logger, AverageMeter
 from util import save_checkpoint as save_best_checkpoint
 import json
 import yaml
 from tqdm import tqdm
 import os.path as osp
-from tensorboardX import SummryWritter
+from tensorboardX import SummaryWriter
 import logging
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-
-
+import argparse
+from torch import optim
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
@@ -29,9 +31,9 @@ parser.add_argument('--config', default='cfgs/config_crf_elmo.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
-
-def adjust_learning_rate(optimizer, epoch):
-    lr = config.lr / (2 ** (epoch // config.adjust_every))
+args = parser.parse_args()
+def adjust_learning_rate(optimizer, epoch, args):
+    lr = args.lr / (2 ** (epoch // args.adjust_every))
     print("Adjust lr to ", lr)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
@@ -70,12 +72,12 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
     is_best = False
     logger.info("Start Experiment")
     loops = int(dg_train.data_len / args.batch_size)
-    for e_ in range(config.epoch):
-        if e_ % args.ajust_every == 0:
-            adjust_learning_rate(optimizer, e_)
+    for e_ in range(args.epoch):
+        if e_ % args.adjust_every == 0:
+            adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
             sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_elmo_samples())
-            if config.use_gpu:
+            if args.use_gpu:
                 sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
                 label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
             cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
@@ -95,12 +97,12 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             is_best = True
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
-        test_acc = evaluate_test(dg_test, model)
+        test_acc = evaluate_test(dg_test, model, args)
         logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
 
 
-def evaluate_test(dr_test, model):
+def evaluate_test(dr_test, model, args):
     logger.info("Evaluting")
     dr_test.reset_samples()
     model.eval()
@@ -110,7 +112,7 @@ def evaluate_test(dr_test, model):
     while dr_test.index < dr_test.data_len:
         sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
         sent = cat_layer(sent, mask)
-        if config.if_gpu:
+        if args.if_gpu:
             sent, mask = sent.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()
         pred_label, best_seq = model.predict(sent, mask, sent_len)
@@ -147,7 +149,7 @@ def main():
     for k, v in config['common'].items():
         setattr(args, k, v)
     mkdirs(osp.join("logs/"+args.exp_name))
-
+    global logger
     logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
 
     logger.info('{}'.format(args))
@@ -161,12 +163,12 @@ def main():
     cudnn.enabled = True
     args.snapshot_dir = osp.join(args.snapshot_dir, args.exp_name)
 
-    tb_logger =SummryWritter("logs/" + args.exp_name)
-
+    global tb_logger
+    tb_logger =SummaryWriter("logs/" + args.exp_name)
     id2label = ["positive", "neutral", "negative"]
     global best_acc
     best_acc = 0
-    cat_layer = SimpleCat(config)
+    cat_layer = SimpleCat(args)
     #cat_layer.load_vector()
     if not args.finetune_embed:
         cat_layer.word_embed.weight.requires_grad = False
@@ -183,15 +185,16 @@ def main():
     dg_test = data_generator(args, test_data, False)
 
     model = models.__dict__[args.arch](args)
-
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = create_opt(parameters, args)
     if args.use_gpu:
         model.cuda()
 
 
     if args.training:
-        train(model, dg_train, dg_valid, dg_test, args)
+        train(model, dg_train, dg_valid, dg_test, optimizer, args)
     else:
-        evaluate_test
+        pass
 
 
 

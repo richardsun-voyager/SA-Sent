@@ -174,7 +174,6 @@ class AspectSent(nn.Module):
 
         print('Transition', pena)
 
-        print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
         return cls_loss + norm_pen
 
     def predict(self, sents, masks, sent_lens):

@@ -3,8 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 from torch.autograd import Variable
 import pdb
+import logging
 
 def to_scalar(var):
     # returns a python float
@@ -57,10 +59,10 @@ def save_checkpoint(state, is_best, filenname = ''):
 
 def create_logger(name, log_file, level=logging.INFO):
     l = logging.getLogger(name)
-    formatter = logging.Formatter('[%(asctime)s][%(filename)15s][line:%(lineno)4d] %(message)s')
+    formatter = logging.Formatter('[%(asctime)s][%(filename)s] %(message)s')
     fh = logging.FileHandler(log_file)
     fh.setFormatter(formatter)
-    sh = logging.SteamHandler()
+    sh = logging.StreamHandler()
     sh.setFormatter(formatter)
     l.setLevel(level)
     l.addHandler(fh)
