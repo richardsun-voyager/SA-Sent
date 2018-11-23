@@ -26,7 +26,7 @@ class Config():
         self.opt = "Adam"
         self.dropout = 0.5
         self.epoch = 30
-        self.lr = 0.0001/ self.batch_size
+        self.lr = 0.001/ self.batch_size
         self.l2 = 0.0
         self.adjust_every = 8
         self.clip_norm = 3
@@ -46,12 +46,16 @@ class Config():
         self.data_path = "data/restaurant/"
         self.train_path = "data/restaurant/train.pkl"
         self.valid_path = "data/restaurant/valid.pkl"
-        self.test_path = "data/restaurant/test.pkl"
+        self.test_path = "data/restaurant/Restaurants_Test_Gold.xml.pkl"
         self.dic_path = "data/restaurant/vocab/dict.pkl"
 
 
         self.model_path = "data/models/"
         self.log_path = "data/logs/"
+        
+        self.is_stanford_nlp = False
+        self.elmo_config_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json"
+        self.elmo_weight_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 
     
     def __repr__(self):

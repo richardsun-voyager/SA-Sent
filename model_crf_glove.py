@@ -121,7 +121,8 @@ class AspectSent(nn.Module):
         batch_size, max_len, _ = sents.size()
         #batch_size*target_len*emb_dim
         context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
-        tri_scores = self.feat2tri(context) #Batch_size*max_len*2
+        
+        tri_scores = self.tanh(self.feat2tri(context)) #Batch_size*sent_len*2
         
         marginals = []
         select_polarities = []

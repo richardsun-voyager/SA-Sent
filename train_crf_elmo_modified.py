@@ -8,8 +8,9 @@ import numpy as np
 import codecs
 import copy
 import os
-from Layer import SimpleCat
-from Layer import ContextTargetCat
+from sklearn.metrics import confusion_matrix
+torch.manual_seed(111)
+
 def adjust_learning_rate(optimizer, epoch):
     lr = config.lr / (2 ** (epoch // config.adjust_every))
     print("Adjust lr to ", lr)
@@ -35,9 +36,7 @@ def load_data(data_path, if_utf=False):
 
 id2label = ["positive", "neutral", "negative"]
 
-cat_layer = ContextTargetCat(config)
-#cat_layer.load_vector()
-cat_layer.word_embed.weight.requires_grad = False
+
 
 def train():
     print(config)
@@ -48,7 +47,7 @@ def train():
     dr = data_reader(config)
     train_data = dr.load_data(config.train_path)
     valid_data = dr.load_data(config.valid_path)
-    test_data = dr.load_data(config.data_path+'Restaurants_Test_Gold.xml.pkl')
+    test_data = dr.load_data(config.test_path)
     print('Training Samples:', len(train_data))
     print('Validating Samples:', len(valid_data))
     print('Testing Samples:', len(test_data))
@@ -81,7 +80,6 @@ def train():
         for _ in np.arange(loops):
             model.zero_grad() 
             sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_elmo_samples())
-            sent_vecs = cat_layer(sent_vecs, mask_vecs)
             if config.if_gpu: 
                 sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
                 label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
@@ -101,25 +99,11 @@ def train():
                 test_acc = evaluate_test(dg_test, model)
                 f.write('Test accuracy:'+str(test_acc)+'\n')
 
-        if acc > best_acc: 
-            best_acc = acc
+        if valid_acc > best_acc: 
+            best_acc = valid_acc
             best_model = copy.deepcopy(model)
             torch.save(best_model, config.model_path+'crf_elmo_model.pt')
-
-
-
-
-
-# def visualize(sent, mask, best_seq, pred_label, gold):
-#     try:
-#         print(u" ".join([id2word[x] for x in sent]))
-#     except:
-#         print("unknow char..")
-#         return
-#     print("Mask", mask)
-#     print("Seq", best_seq)
-#     print("Predict: {0}, Gold: {1}".format(id2label[pred_label], id2label[gold]))
-#     print("")
+    
 
 def evaluate_test(dr_test, model):
     print("Evaluting")
@@ -131,12 +115,11 @@ def evaluate_test(dr_test, model):
     pred_labels = []
     while dr_test.index < dr_test.data_len:
         #The data may be ordered
-        sent, mask, label, sent_len, _, _ = next(dr_test.get_elmo_samples())
-        sent_vecs = cat_layer(sent, mask, False)
+        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
         if config.if_gpu: 
-            sent_vecs, mask = sent_vecs.cuda(), mask.cuda()
+            sent, mask = sent.cuda(), mask.cuda()
             label, sent_len = label.cuda(), sent_len.cuda()
-        pred_label, _  = model.predict(sent_vecs, mask, sent_len) 
+        pred_label, _, _  = model.predict(sent, mask, sent_len) 
         #Record the testing label
         pred_labels.extend(pred_label.cpu().numpy())
         true_labels.extend(label.cpu().numpy())

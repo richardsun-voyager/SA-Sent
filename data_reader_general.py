@@ -17,15 +17,6 @@ from allennlp.modules.elmo import Elmo, batch_to_ids
 import en_core_web_sm
 nlp = en_core_web_sm.load()
 
-# from mosestokenizer import MosesTokenizer
-# tokenizer = MosesTokenizer()
-
-# from stanfordcorenlp import StanfordCoreNLP
-# stanford_nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
-
-options_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json"
-weight_file = "../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
-elmo = Elmo(options_file, weight_file, 2, dropout=0)
 
 SentInst = namedtuple("SentenceInstance", "id text text_ids text_inds opinions")
 OpinionInst = namedtuple("OpinionInstance", "target_text polarity class_ind target_mask target_ids target_tokens")
@@ -51,25 +42,35 @@ class dataHelper():
         # data
         self.train_data = None
         self.test_data = None
+        
+        if config.is_stanford_nlp:
+            from stanfordcorenlp import StanfordCoreNLP
+            self.stanford_nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
 
     def read_csv_data(self,file_name):
         '''
         Read CSV data
+        Args:
+        file_name: path of the csv file
+        text: text column name
+        target: target column name
+        label: label column name
         '''
         import pandas as pd
         data = pd.read_csv(file_name)
         data_num = data.shape[0]
+        print('CSV Data Num:', data_num)
         sentence_list = []
         for i in np.arange(data_num):
             sent_id = i
-            sent_text = data['Tweet'][i]
+            sent_text = self.clean_text(data['text'][i])
             opinion_list = []
-            term = data['Keyword'][i]
-            if pd.isnull(data['Sentiment'][i]):
-                print('the '+str(i)+' empty')
+            term = self.clean_text(data['target'][i])
+            if pd.isnull(data['label'][i]):
+                print('the '+str(i)+'data label is empty!!!!')
                 continue
-            polarity = data['Sentiment'][i].lower()
-            opinion_inst = OpinionInst(term, polarity, None, None, None)
+            polarity = data['label'][i].lower()
+            opinion_inst = OpinionInst(term, polarity, None, None, None, None)
             opinion_list.append(opinion_inst)
             sent_Inst = SentInst(sent_id, sent_text, None, None, opinion_list)
             sentence_list.append(sent_Inst)
@@ -141,7 +142,7 @@ class dataHelper():
 
     
     def stanford_tokenize(self, sent_str):
-        return stanford_nlp.word_tokenize(sent_str)
+        return self.stanford_nlp.word_tokenize(sent_str)
 
 
     def tokenize(self, sent_str):
@@ -188,14 +189,14 @@ class dataHelper():
                     continue
                 
                 #Find the position of the target, i.e, 
-                #"I saw the black dog and a white dog stand there, what a lovely black dog, so black !"
+                #"I saw the black dog and a white dog stand there, what a lovely black dog, so black dog !"
                 sent_tokens = np.array(sent_tokens)
                 target_start = target_tokens[0]
                 target_end = target_tokens[-1]
                 index = np.where(sent_tokens == target_start)[0]
                 #Different locations
                 for i in index:
-                    if i+len(target_tokens) >= len(sent_tokens):
+                    if i+len(target_tokens) > len(sent_tokens):
                         continue
                     if target_end == sent_tokens[i+len(target_tokens)-1]:
                         mask[i:(i+len(target_tokens))] = [1]*len(target_tokens)
@@ -359,11 +360,11 @@ class dataHelper():
         return vec
     
 
-    def read(self, data_path, data_source='xml'):
+    def read(self, data_path, data_format='xml'):
         '''
         read and process raw data, create dictionary and index based on the training data
         '''
-        if data_source == 'csv':
+        if data_format == 'csv':
             train_data = self.read_csv_data(data_path)
         else:
             train_data = self.read_xml_data(data_path)
@@ -470,12 +471,12 @@ class data_reader:
         self.EOS_ID = self.dh.EOS_ID
         print('Preprocessing Over!')
 
-    def read_raw_data(self, data_path, data_source='xml', use_glove=False):
+    def read_raw_data(self, data_path, data_format='xml', use_glove=False):
         '''
         Reading Raw Dataset from one file
         '''
         print('Reading Dataset....')
-        data, text_words = self.dh.read(data_path, data_source, self.is_training)
+        data, text_words = self.dh.read(data_path, data_format)
         #Build dictionary
         if not use_glove:#Use glove directly, quite large, to be cautious
             words = self.dh.build_local_vocab(text_words, self.config.embed_num)
@@ -570,19 +571,30 @@ class data_generator:
         self.is_training = is_training
         self.config = config
         self.index = 0
-        self.data_batch = data_batch
+        #Filter sentences without targets
+        self.data_batch = self.remove_empty_target(data_batch)
         self.data_len = len(self.data_batch)
         self.UNK = "unk"
         self.EOS = "<eos>"
         self.PAD = "<pad>"
         self.load_local_dict()
         
+        options_file = config.elmo_config_file 
+        weight_file = config.elmo_weight_file
+        self.elmo = Elmo(options_file, weight_file, 2, dropout=0)
+        
     def remove_empty_target(self, data_batch):
         '''
         Remove items without targets
         '''
-        data_batch = [item for item in data_batch if sum(item[1])>0]
-        return data_batch
+        original_num = len(data_batch)
+        filtered_data = []
+        for item in data_batch:
+            if sum(item[1])>0:
+                filtered_data.append(item)
+            else:
+                print('Mask Without Target', item[0], 'Target', item[5]) 
+        return filtered_data
 
     def load_local_dict(self):
         '''
@@ -635,9 +647,11 @@ class data_generator:
         max_len = max(sent_lens)
         batch_size = len(sent_lens)
         character_ids = batch_to_ids(token_list)
-        embeddings = elmo(character_ids).detach()
+        embeddings = self.elmo(character_ids)
+        
         #batch_size*word_num * 1024
         sent_vecs = embeddings['elmo_representations'][0]
+        sent_vecs = sent_vecs.detach()#no gradient
         #Padding the mask to same lengths
         mask_vecs = np.zeros([batch_size, max_len])
         mask_vecs = torch.LongTensor(mask_vecs)
