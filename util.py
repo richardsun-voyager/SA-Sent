@@ -16,6 +16,47 @@ def argmax(vec):
     _, idx = torch.max(vec, 0)
     return to_scalar(idx)
 
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+
+    def __init__(self, length=0):
+        self.length = length
+        self.reset()
+
+    def reset(self):
+        if self.length > 0:
+            self.history = []
+        else:
+            self.count = 0
+            self.sum = 0.0
+
+        self.val = 0.0
+        self.avg = 0.0
+
+    def update(self, val):
+        if self.length > 0:
+            self.history.append(val)
+            if len(self.history) > self.length:
+                del self.history[0]
+
+            self.val = self.history[-1]
+            self.avg = np.mean(self.history)
+        else:
+            self.val = val
+            self.sum += val
+            self.count += 1
+            self.avg = self.sum / self.count
+
+
+def save_checkpoint(state, is_best, filenname = ''):
+    torch.save(state, filename + 'checkpoint.pth.tar'):
+    if is_best:
+        shutil.copyfile(filename + 'checkpoint.pth.tar', filename + 'model_best.pth.tar')
+
+
+
+
 # the input is 2d dim tensor
 # output 1d tensor
 def argmax_m(mat):
@@ -86,5 +127,5 @@ def create_empty_var(if_gpu):
     if if_gpu:
         loss = Variable(torch.Tensor([0]).cuda())
     else:
-        loss = Variable(torch.Tensor([0])) 
+        loss = Variable(torch.Tensor([0]))
     return loss
