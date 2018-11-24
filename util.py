@@ -59,7 +59,7 @@ def save_checkpoint(state, is_best, filenname = ''):
 
 def create_logger(name, log_file, level=logging.INFO):
     l = logging.getLogger(name)
-    formatter = logging.Formatter('[%(asctime)s][%(filename)s] %(message)s')
+    formatter = logging.Formatter('[%(filename)s] %(message)s')
     fh = logging.FileHandler(log_file)
     fh.setFormatter(formatter)
     sh = logging.StreamHandler()

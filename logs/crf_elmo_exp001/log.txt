@@ -851,3 +851,513 @@
 [2018-11-23 23:57:25,216][train_crf.py] Validating Samples: 601
 [2018-11-23 23:57:25,216][train_crf.py] Testing Samples: 1120
 [2018-11-23 23:57:56,142][train_crf.py] Start Experiment
+[2018-11-24 10:51:29,731][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 10:51:29,732][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 10:51:29,732][train_crf.py] load_path        
+[2018-11-24 10:51:29,732][train_crf.py] e                False
+[2018-11-24 10:51:29,732][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 10:51:29,732][train_crf.py] arch             AspectSent
+[2018-11-24 10:51:29,732][train_crf.py] batch_size       32
+[2018-11-24 10:51:29,732][train_crf.py] embed_num        4334
+[2018-11-24 10:51:29,732][train_crf.py] embed_dim        1024
+[2018-11-24 10:51:29,732][train_crf.py] mask_dim         50
+[2018-11-24 10:51:29,732][train_crf.py] if_update_embed  True
+[2018-11-24 10:51:29,732][train_crf.py] l_hidden_size    512
+[2018-11-24 10:51:29,732][train_crf.py] l_num_layers     2
+[2018-11-24 10:51:29,732][train_crf.py] l_dropout        0.1
+[2018-11-24 10:51:29,732][train_crf.py] C1               0.1
+[2018-11-24 10:51:29,732][train_crf.py] C2               0.001
+[2018-11-24 10:51:29,732][train_crf.py] if_reset         True
+[2018-11-24 10:51:29,732][train_crf.py] opt              Adam
+[2018-11-24 10:51:29,733][train_crf.py] dropout          0.5
+[2018-11-24 10:51:29,733][train_crf.py] epoch            30
+[2018-11-24 10:51:29,733][train_crf.py] lr               0.0005
+[2018-11-24 10:51:29,733][train_crf.py] l2               0.0
+[2018-11-24 10:51:29,733][train_crf.py] adjust_every     8
+[2018-11-24 10:51:29,733][train_crf.py] clip_norm        3
+[2018-11-24 10:51:29,733][train_crf.py] k_fold           6
+[2018-11-24 10:51:29,733][train_crf.py] print_freq       10
+[2018-11-24 10:51:29,733][train_crf.py] finetune_embed   False
+[2018-11-24 10:51:29,733][train_crf.py] if_replace       False
+[2018-11-24 10:51:29,733][train_crf.py] training         True
+[2018-11-24 10:51:29,733][train_crf.py] if_gpu           True
+[2018-11-24 10:51:29,733][train_crf.py] use_gpu          True
+[2018-11-24 10:51:29,733][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 10:51:29,733][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 10:51:29,733][train_crf.py] data_path        data/restaurant/
+[2018-11-24 10:51:29,733][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 10:51:29,733][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 10:51:29,734][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 10:51:29,734][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 10:51:29,734][train_crf.py] model_path       data/models/
+[2018-11-24 10:51:29,734][train_crf.py] log_path         data/logs/
+[2018-11-24 10:51:29,734][train_crf.py] is_stanford_nlp  False
+[2018-11-24 10:51:29,734][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 10:51:29,734][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 10:51:29,734][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 10:51:30,122][train_crf.py] Training Samples: 3001
+[2018-11-24 10:51:30,122][train_crf.py] Validating Samples: 601
+[2018-11-24 10:51:30,122][train_crf.py] Testing Samples: 1120
+[2018-11-24 10:51:55,440][train_crf.py] Start Experiment
+[2018-11-24 10:52:10,529][train_crf.py] i_iter 1/93 cls_loss: 1.103796
+[2018-11-24 10:52:18,342][train_crf.py] i_iter 2/93 cls_loss: 1.080283
+[2018-11-24 10:52:24,486][train_crf.py] i_iter 3/93 cls_loss: 1.115616
+[2018-11-24 10:52:30,269][train_crf.py] i_iter 4/93 cls_loss: 1.094158
+[2018-11-24 10:52:35,248][train_crf.py] i_iter 5/93 cls_loss: 1.084144
+[2018-11-24 10:52:56,981][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=False, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=False, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 10:52:56,986][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 10:52:56,989][train_crf.py] load_path        
+[2018-11-24 10:52:56,990][train_crf.py] e                False
+[2018-11-24 10:52:56,992][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 10:52:56,993][train_crf.py] arch             AspectSent
+[2018-11-24 10:52:56,994][train_crf.py] batch_size       32
+[2018-11-24 10:52:56,998][train_crf.py] embed_num        4334
+[2018-11-24 10:52:56,999][train_crf.py] embed_dim        1024
+[2018-11-24 10:52:57,000][train_crf.py] mask_dim         50
+[2018-11-24 10:52:57,002][train_crf.py] if_update_embed  True
+[2018-11-24 10:52:57,002][train_crf.py] l_hidden_size    512
+[2018-11-24 10:52:57,002][train_crf.py] l_num_layers     2
+[2018-11-24 10:52:57,002][train_crf.py] l_dropout        0.1
+[2018-11-24 10:52:57,002][train_crf.py] C1               0.1
+[2018-11-24 10:52:57,002][train_crf.py] C2               0.001
+[2018-11-24 10:52:57,002][train_crf.py] if_reset         True
+[2018-11-24 10:52:57,002][train_crf.py] opt              Adam
+[2018-11-24 10:52:57,002][train_crf.py] dropout          0.5
+[2018-11-24 10:52:57,002][train_crf.py] epoch            30
+[2018-11-24 10:52:57,002][train_crf.py] lr               0.0005
+[2018-11-24 10:52:57,002][train_crf.py] l2               0.0
+[2018-11-24 10:52:57,004][train_crf.py] adjust_every     8
+[2018-11-24 10:52:57,004][train_crf.py] clip_norm        3
+[2018-11-24 10:52:57,004][train_crf.py] k_fold           6
+[2018-11-24 10:52:57,004][train_crf.py] print_freq       10
+[2018-11-24 10:52:57,004][train_crf.py] finetune_embed   False
+[2018-11-24 10:52:57,004][train_crf.py] if_replace       False
+[2018-11-24 10:52:57,004][train_crf.py] training         True
+[2018-11-24 10:52:57,005][train_crf.py] if_gpu           False
+[2018-11-24 10:52:57,005][train_crf.py] use_gpu          False
+[2018-11-24 10:52:57,005][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 10:52:57,007][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 10:52:57,007][train_crf.py] data_path        data/restaurant/
+[2018-11-24 10:52:57,007][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 10:52:57,007][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 10:52:57,007][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 10:52:57,007][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 10:52:57,009][train_crf.py] model_path       data/models/
+[2018-11-24 10:52:57,009][train_crf.py] log_path         data/logs/
+[2018-11-24 10:52:57,009][train_crf.py] is_stanford_nlp  False
+[2018-11-24 10:52:57,009][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 10:52:57,009][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 10:52:57,009][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 10:52:57,456][train_crf.py] Training Samples: 3001
+[2018-11-24 10:52:57,457][train_crf.py] Validating Samples: 601
+[2018-11-24 10:52:57,457][train_crf.py] Testing Samples: 1120
+[2018-11-24 10:53:17,585][train_crf.py] Start Experiment
+[2018-11-24 10:53:27,322][train_crf.py] i_iter 1/93 cls_loss: 2.224390
+[2018-11-24 10:53:31,332][train_crf.py] i_iter 2/93 cls_loss: 2.092308
+[2018-11-24 10:53:35,592][train_crf.py] i_iter 3/93 cls_loss: 1.871391
+[2018-11-24 10:53:41,331][train_crf.py] i_iter 4/93 cls_loss: 1.784899
+[2018-11-24 10:53:45,824][train_crf.py] i_iter 5/93 cls_loss: 1.644088
+[2018-11-24 10:53:50,060][train_crf.py] i_iter 6/93 cls_loss: 1.567265
+[2018-11-24 10:53:54,082][train_crf.py] i_iter 7/93 cls_loss: 1.510625
+[2018-11-24 10:53:58,904][train_crf.py] i_iter 8/93 cls_loss: 1.436977
+[2018-11-24 10:54:07,976][train_crf.py] i_iter 9/93 cls_loss: 1.388518
+[2018-11-24 10:54:23,614][train_crf.py] i_iter 11/93 cls_loss: 1.195885
+[2018-11-24 10:54:29,958][train_crf.py] i_iter 12/93 cls_loss: 1.096775
+[2018-11-24 10:54:37,578][train_crf.py] i_iter 13/93 cls_loss: 1.077366
+[2018-11-24 10:54:44,873][train_crf.py] i_iter 14/93 cls_loss: 1.038980
+[2018-11-24 10:54:50,906][train_crf.py] i_iter 15/93 cls_loss: 1.017765
+[2018-11-24 10:54:56,656][train_crf.py] i_iter 16/93 cls_loss: 0.982473
+[2018-11-24 10:55:04,935][train_crf.py] i_iter 17/93 cls_loss: 0.967869
+[2018-11-24 10:55:13,936][train_crf.py] i_iter 18/93 cls_loss: 0.955756
+[2018-11-24 10:55:20,660][train_crf.py] i_iter 19/93 cls_loss: 0.940092
+[2018-11-24 10:55:33,173][train_crf.py] i_iter 21/93 cls_loss: 0.848414
+[2018-11-24 10:55:39,852][train_crf.py] i_iter 22/93 cls_loss: 0.850388
+[2018-11-24 10:55:46,184][train_crf.py] i_iter 23/93 cls_loss: 0.819392
+[2018-11-24 10:55:52,114][train_crf.py] i_iter 24/93 cls_loss: 0.766851
+[2018-11-24 10:55:57,645][train_crf.py] i_iter 25/93 cls_loss: 0.756922
+[2018-11-24 10:56:03,602][train_crf.py] i_iter 26/93 cls_loss: 0.754181
+[2018-11-24 10:56:09,451][train_crf.py] i_iter 27/93 cls_loss: 0.728703
+[2018-11-24 10:56:15,565][train_crf.py] i_iter 28/93 cls_loss: 0.728041
+[2018-11-24 10:56:22,025][train_crf.py] i_iter 29/93 cls_loss: 0.731144
+[2018-11-24 10:56:33,913][train_crf.py] i_iter 31/93 cls_loss: 0.698808
+[2018-11-24 10:56:41,112][train_crf.py] i_iter 32/93 cls_loss: 0.682276
+[2018-11-24 10:56:48,816][train_crf.py] i_iter 33/93 cls_loss: 0.678781
+[2018-11-24 10:56:55,232][train_crf.py] i_iter 34/93 cls_loss: 0.680738
+[2018-11-24 10:57:03,037][train_crf.py] i_iter 35/93 cls_loss: 0.700291
+[2018-11-24 10:57:09,020][train_crf.py] i_iter 36/93 cls_loss: 0.690342
+[2018-11-24 10:57:16,767][train_crf.py] i_iter 37/93 cls_loss: 0.696083
+[2018-11-24 10:57:33,138][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 10:57:33,139][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 10:57:33,139][train_crf.py] load_path        
+[2018-11-24 10:57:33,139][train_crf.py] e                False
+[2018-11-24 10:57:33,139][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 10:57:33,139][train_crf.py] arch             AspectSent
+[2018-11-24 10:57:33,139][train_crf.py] batch_size       32
+[2018-11-24 10:57:33,139][train_crf.py] embed_num        4334
+[2018-11-24 10:57:33,139][train_crf.py] embed_dim        1024
+[2018-11-24 10:57:33,139][train_crf.py] mask_dim         50
+[2018-11-24 10:57:33,140][train_crf.py] if_update_embed  True
+[2018-11-24 10:57:33,140][train_crf.py] l_hidden_size    512
+[2018-11-24 10:57:33,140][train_crf.py] l_num_layers     2
+[2018-11-24 10:57:33,140][train_crf.py] l_dropout        0.1
+[2018-11-24 10:57:33,140][train_crf.py] C1               0.1
+[2018-11-24 10:57:33,140][train_crf.py] C2               0.001
+[2018-11-24 10:57:33,140][train_crf.py] if_reset         True
+[2018-11-24 10:57:33,140][train_crf.py] opt              Adam
+[2018-11-24 10:57:33,140][train_crf.py] dropout          0.5
+[2018-11-24 10:57:33,140][train_crf.py] epoch            30
+[2018-11-24 10:57:33,140][train_crf.py] lr               0.0005
+[2018-11-24 10:57:33,140][train_crf.py] l2               0.0
+[2018-11-24 10:57:33,140][train_crf.py] adjust_every     8
+[2018-11-24 10:57:33,140][train_crf.py] clip_norm        3
+[2018-11-24 10:57:33,140][train_crf.py] k_fold           6
+[2018-11-24 10:57:33,140][train_crf.py] print_freq       10
+[2018-11-24 10:57:33,140][train_crf.py] finetune_embed   False
+[2018-11-24 10:57:33,141][train_crf.py] if_replace       False
+[2018-11-24 10:57:33,141][train_crf.py] training         True
+[2018-11-24 10:57:33,141][train_crf.py] if_gpu           True
+[2018-11-24 10:57:33,141][train_crf.py] use_gpu          True
+[2018-11-24 10:57:33,141][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 10:57:33,141][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 10:57:33,141][train_crf.py] data_path        data/restaurant/
+[2018-11-24 10:57:33,141][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 10:57:33,141][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 10:57:33,141][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 10:57:33,141][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 10:57:33,142][train_crf.py] model_path       data/models/
+[2018-11-24 10:57:33,142][train_crf.py] log_path         data/logs/
+[2018-11-24 10:57:33,142][train_crf.py] is_stanford_nlp  False
+[2018-11-24 10:57:33,142][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 10:57:33,142][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 10:57:33,142][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 10:57:33,559][train_crf.py] Training Samples: 3001
+[2018-11-24 10:57:33,559][train_crf.py] Validating Samples: 601
+[2018-11-24 10:57:33,559][train_crf.py] Testing Samples: 1120
+[2018-11-24 10:57:56,222][train_crf.py] Start Experiment
+[2018-11-24 10:59:35,772][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 10:59:35,777][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 10:59:35,778][train_crf.py] load_path        
+[2018-11-24 10:59:35,779][train_crf.py] e                False
+[2018-11-24 10:59:35,781][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 10:59:35,782][train_crf.py] arch             AspectSent
+[2018-11-24 10:59:35,784][train_crf.py] batch_size       32
+[2018-11-24 10:59:35,785][train_crf.py] embed_num        4334
+[2018-11-24 10:59:35,786][train_crf.py] embed_dim        1024
+[2018-11-24 10:59:35,788][train_crf.py] mask_dim         50
+[2018-11-24 10:59:35,788][train_crf.py] if_update_embed  True
+[2018-11-24 10:59:35,788][train_crf.py] l_hidden_size    512
+[2018-11-24 10:59:35,788][train_crf.py] l_num_layers     2
+[2018-11-24 10:59:35,788][train_crf.py] l_dropout        0.1
+[2018-11-24 10:59:35,789][train_crf.py] C1               0.1
+[2018-11-24 10:59:35,790][train_crf.py] C2               0.001
+[2018-11-24 10:59:35,790][train_crf.py] if_reset         True
+[2018-11-24 10:59:35,790][train_crf.py] opt              Adam
+[2018-11-24 10:59:35,790][train_crf.py] dropout          0.5
+[2018-11-24 10:59:35,790][train_crf.py] epoch            30
+[2018-11-24 10:59:35,790][train_crf.py] lr               0.0005
+[2018-11-24 10:59:35,790][train_crf.py] l2               0.0
+[2018-11-24 10:59:35,790][train_crf.py] adjust_every     8
+[2018-11-24 10:59:35,790][train_crf.py] clip_norm        3
+[2018-11-24 10:59:35,790][train_crf.py] k_fold           6
+[2018-11-24 10:59:35,790][train_crf.py] print_freq       10
+[2018-11-24 10:59:35,790][train_crf.py] finetune_embed   False
+[2018-11-24 10:59:35,791][train_crf.py] if_replace       False
+[2018-11-24 10:59:35,791][train_crf.py] training         True
+[2018-11-24 10:59:35,792][train_crf.py] if_gpu           True
+[2018-11-24 10:59:35,792][train_crf.py] use_gpu          True
+[2018-11-24 10:59:35,792][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 10:59:35,792][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 10:59:35,793][train_crf.py] data_path        data/restaurant/
+[2018-11-24 10:59:35,793][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 10:59:35,793][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 10:59:35,793][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 10:59:35,793][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 10:59:35,793][train_crf.py] model_path       data/models/
+[2018-11-24 10:59:35,793][train_crf.py] log_path         data/logs/
+[2018-11-24 10:59:35,793][train_crf.py] is_stanford_nlp  False
+[2018-11-24 10:59:35,793][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 10:59:35,793][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 10:59:35,793][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 10:59:36,185][train_crf.py] Training Samples: 3001
+[2018-11-24 10:59:36,185][train_crf.py] Validating Samples: 601
+[2018-11-24 10:59:36,185][train_crf.py] Testing Samples: 1120
+[2018-11-24 10:59:58,899][train_crf.py] Start Experiment
+[2018-11-24 11:00:22,134][train_crf.py] i_iter 1/93 cls_loss: 2.454926
+[2018-11-24 11:00:33,068][train_crf.py] i_iter 2/93 cls_loss: 2.567285
+[2018-11-24 11:01:04,386][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 11:01:04,391][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 11:01:04,393][train_crf.py] load_path        
+[2018-11-24 11:01:04,393][train_crf.py] e                False
+[2018-11-24 11:01:04,393][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 11:01:04,393][train_crf.py] arch             AspectSent
+[2018-11-24 11:01:04,393][train_crf.py] batch_size       32
+[2018-11-24 11:01:04,393][train_crf.py] embed_num        4334
+[2018-11-24 11:01:04,393][train_crf.py] embed_dim        1024
+[2018-11-24 11:01:04,393][train_crf.py] mask_dim         50
+[2018-11-24 11:01:04,394][train_crf.py] if_update_embed  True
+[2018-11-24 11:01:04,394][train_crf.py] l_hidden_size    512
+[2018-11-24 11:01:04,394][train_crf.py] l_num_layers     2
+[2018-11-24 11:01:04,394][train_crf.py] l_dropout        0.1
+[2018-11-24 11:01:04,394][train_crf.py] C1               0.1
+[2018-11-24 11:01:04,394][train_crf.py] C2               0.001
+[2018-11-24 11:01:04,394][train_crf.py] if_reset         True
+[2018-11-24 11:01:04,394][train_crf.py] opt              Adam
+[2018-11-24 11:01:04,394][train_crf.py] dropout          0.5
+[2018-11-24 11:01:04,394][train_crf.py] epoch            30
+[2018-11-24 11:01:04,394][train_crf.py] lr               0.0005
+[2018-11-24 11:01:04,394][train_crf.py] l2               0.0
+[2018-11-24 11:01:04,395][train_crf.py] adjust_every     8
+[2018-11-24 11:01:04,395][train_crf.py] clip_norm        3
+[2018-11-24 11:01:04,395][train_crf.py] k_fold           6
+[2018-11-24 11:01:04,395][train_crf.py] print_freq       10
+[2018-11-24 11:01:04,395][train_crf.py] finetune_embed   False
+[2018-11-24 11:01:04,395][train_crf.py] if_replace       False
+[2018-11-24 11:01:04,395][train_crf.py] training         True
+[2018-11-24 11:01:04,395][train_crf.py] if_gpu           True
+[2018-11-24 11:01:04,395][train_crf.py] use_gpu          True
+[2018-11-24 11:01:04,395][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 11:01:04,395][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 11:01:04,396][train_crf.py] data_path        data/restaurant/
+[2018-11-24 11:01:04,396][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 11:01:04,396][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 11:01:04,396][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 11:01:04,396][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 11:01:04,396][train_crf.py] model_path       data/models/
+[2018-11-24 11:01:04,396][train_crf.py] log_path         data/logs/
+[2018-11-24 11:01:04,396][train_crf.py] is_stanford_nlp  False
+[2018-11-24 11:01:04,396][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 11:01:04,396][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 11:01:04,396][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 11:01:04,817][train_crf.py] Training Samples: 3001
+[2018-11-24 11:01:04,818][train_crf.py] Validating Samples: 601
+[2018-11-24 11:01:04,818][train_crf.py] Testing Samples: 1120
+[2018-11-24 11:01:27,190][train_crf.py] Start Experiment
+[2018-11-24 11:01:48,977][train_crf.py] i_iter 1/93 cls_loss: 1.936977
+[2018-11-24 11:01:59,982][train_crf.py] i_iter 2/93 cls_loss: 1.680279
+[2018-11-24 11:02:11,278][train_crf.py] i_iter 3/93 cls_loss: 1.460521
+[2018-11-24 11:02:20,883][train_crf.py] i_iter 4/93 cls_loss: 1.287712
+[2018-11-24 11:02:31,371][train_crf.py] i_iter 5/93 cls_loss: 1.271978
+[2018-11-24 11:02:44,002][train_crf.py] i_iter 6/93 cls_loss: 1.234215
+[2018-11-24 11:02:55,784][train_crf.py] i_iter 7/93 cls_loss: 1.215030
+[2018-11-24 11:03:05,645][train_crf.py] i_iter 8/93 cls_loss: 1.192815
+[2018-11-24 11:03:16,267][train_crf.py] i_iter 9/93 cls_loss: 1.176247
+[2018-11-24 11:03:43,236][train_crf.py] i_iter 11/93 cls_loss: 0.949245
+[2018-11-24 11:03:54,476][train_crf.py] i_iter 12/93 cls_loss: 0.910508
+[2018-11-24 11:04:04,928][train_crf.py] i_iter 13/93 cls_loss: 0.916857
+[2018-11-24 11:04:15,607][train_crf.py] i_iter 14/93 cls_loss: 0.962809
+[2018-11-24 11:04:20,944][train_crf.py] i_iter 15/93 cls_loss: 0.916104
+[2018-11-24 11:04:25,547][train_crf.py] i_iter 16/93 cls_loss: 0.899042
+[2018-11-24 11:04:30,082][train_crf.py] i_iter 17/93 cls_loss: 0.865134
+[2018-11-24 11:04:35,520][train_crf.py] i_iter 18/93 cls_loss: 0.881838
+[2018-11-24 11:04:40,489][train_crf.py] i_iter 19/93 cls_loss: 0.864939
+[2018-11-24 11:04:50,889][train_crf.py] i_iter 21/93 cls_loss: 0.851359
+[2018-11-24 11:04:55,978][train_crf.py] i_iter 22/93 cls_loss: 0.841022
+[2018-11-24 11:05:02,305][train_crf.py] i_iter 23/93 cls_loss: 0.825585
+[2018-11-24 11:05:07,594][train_crf.py] i_iter 24/93 cls_loss: 0.776374
+[2018-11-24 11:05:13,682][train_crf.py] i_iter 25/93 cls_loss: 0.780743
+[2018-11-24 11:05:21,636][train_crf.py] i_iter 26/93 cls_loss: 0.796525
+[2018-11-24 11:05:29,163][train_crf.py] i_iter 27/93 cls_loss: 0.821518
+[2018-11-24 11:05:35,813][train_crf.py] i_iter 28/93 cls_loss: 0.783108
+[2018-11-24 11:05:41,488][train_crf.py] i_iter 29/93 cls_loss: 0.746446
+[2018-11-24 11:05:52,999][train_crf.py] i_iter 31/93 cls_loss: 0.741206
+[2018-11-24 11:05:57,574][train_crf.py] i_iter 32/93 cls_loss: 0.745639
+[2018-11-24 11:06:02,047][train_crf.py] i_iter 33/93 cls_loss: 0.733864
+[2018-11-24 11:06:11,635][train_crf.py] i_iter 34/93 cls_loss: 0.774428
+[2018-11-24 11:06:19,550][train_crf.py] i_iter 35/93 cls_loss: 0.784964
+[2018-11-24 11:06:27,566][train_crf.py] i_iter 36/93 cls_loss: 0.776319
+[2018-11-24 11:06:35,781][train_crf.py] i_iter 37/93 cls_loss: 0.752434
+[2018-11-24 11:06:45,513][train_crf.py] i_iter 38/93 cls_loss: 0.783074
+[2018-11-24 11:06:55,217][train_crf.py] i_iter 39/93 cls_loss: 0.801467
+[2018-11-24 11:07:03,453][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 11:07:03,453][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 11:07:03,453][train_crf.py] load_path        
+[2018-11-24 11:07:03,453][train_crf.py] e                False
+[2018-11-24 11:07:03,453][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 11:07:03,453][train_crf.py] arch             AspectSent
+[2018-11-24 11:07:03,453][train_crf.py] batch_size       32
+[2018-11-24 11:07:03,453][train_crf.py] embed_num        4334
+[2018-11-24 11:07:03,454][train_crf.py] embed_dim        1024
+[2018-11-24 11:07:03,454][train_crf.py] mask_dim         50
+[2018-11-24 11:07:03,454][train_crf.py] if_update_embed  True
+[2018-11-24 11:07:03,454][train_crf.py] l_hidden_size    512
+[2018-11-24 11:07:03,454][train_crf.py] l_num_layers     2
+[2018-11-24 11:07:03,454][train_crf.py] l_dropout        0.1
+[2018-11-24 11:07:03,454][train_crf.py] C1               0.1
+[2018-11-24 11:07:03,454][train_crf.py] C2               0.001
+[2018-11-24 11:07:03,454][train_crf.py] if_reset         True
+[2018-11-24 11:07:03,454][train_crf.py] opt              Adam
+[2018-11-24 11:07:03,454][train_crf.py] dropout          0.5
+[2018-11-24 11:07:03,455][train_crf.py] epoch            30
+[2018-11-24 11:07:03,455][train_crf.py] lr               0.0005
+[2018-11-24 11:07:03,455][train_crf.py] l2               0.0
+[2018-11-24 11:07:03,455][train_crf.py] adjust_every     8
+[2018-11-24 11:07:03,455][train_crf.py] clip_norm        3
+[2018-11-24 11:07:03,455][train_crf.py] k_fold           6
+[2018-11-24 11:07:03,455][train_crf.py] print_freq       10
+[2018-11-24 11:07:03,455][train_crf.py] finetune_embed   False
+[2018-11-24 11:07:03,455][train_crf.py] if_replace       False
+[2018-11-24 11:07:03,455][train_crf.py] training         True
+[2018-11-24 11:07:03,455][train_crf.py] if_gpu           True
+[2018-11-24 11:07:03,455][train_crf.py] use_gpu          True
+[2018-11-24 11:07:03,455][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 11:07:03,455][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 11:07:03,455][train_crf.py] data_path        data/restaurant/
+[2018-11-24 11:07:03,456][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 11:07:03,456][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 11:07:03,456][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 11:07:03,456][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 11:07:03,456][train_crf.py] model_path       data/models/
+[2018-11-24 11:07:03,456][train_crf.py] log_path         data/logs/
+[2018-11-24 11:07:03,456][train_crf.py] is_stanford_nlp  False
+[2018-11-24 11:07:03,456][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 11:07:03,456][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 11:07:03,456][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 11:07:03,892][train_crf.py] Training Samples: 3001
+[2018-11-24 11:07:03,893][train_crf.py] Validating Samples: 601
+[2018-11-24 11:07:03,893][train_crf.py] Testing Samples: 1120
+[2018-11-24 11:07:26,248][train_crf.py] Start Experiment
+[2018-11-24 11:07:33,385][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 11:07:33,385][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 11:07:33,385][train_crf.py] load_path        
+[2018-11-24 11:07:33,385][train_crf.py] e                False
+[2018-11-24 11:07:33,385][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 11:07:33,385][train_crf.py] arch             AspectSent
+[2018-11-24 11:07:33,385][train_crf.py] batch_size       32
+[2018-11-24 11:07:33,385][train_crf.py] embed_num        4334
+[2018-11-24 11:07:33,385][train_crf.py] embed_dim        1024
+[2018-11-24 11:07:33,385][train_crf.py] mask_dim         50
+[2018-11-24 11:07:33,386][train_crf.py] if_update_embed  True
+[2018-11-24 11:07:33,386][train_crf.py] l_hidden_size    512
+[2018-11-24 11:07:33,386][train_crf.py] l_num_layers     2
+[2018-11-24 11:07:33,386][train_crf.py] l_dropout        0.1
+[2018-11-24 11:07:33,386][train_crf.py] C1               0.1
+[2018-11-24 11:07:33,386][train_crf.py] C2               0.001
+[2018-11-24 11:07:33,386][train_crf.py] if_reset         True
+[2018-11-24 11:07:33,386][train_crf.py] opt              Adam
+[2018-11-24 11:07:33,386][train_crf.py] dropout          0.5
+[2018-11-24 11:07:33,386][train_crf.py] epoch            30
+[2018-11-24 11:07:33,386][train_crf.py] lr               0.0005
+[2018-11-24 11:07:33,387][train_crf.py] l2               0.0
+[2018-11-24 11:07:33,387][train_crf.py] adjust_every     8
+[2018-11-24 11:07:33,387][train_crf.py] clip_norm        3
+[2018-11-24 11:07:33,387][train_crf.py] k_fold           6
+[2018-11-24 11:07:33,387][train_crf.py] print_freq       10
+[2018-11-24 11:07:33,387][train_crf.py] finetune_embed   False
+[2018-11-24 11:07:33,387][train_crf.py] if_replace       False
+[2018-11-24 11:07:33,387][train_crf.py] training         True
+[2018-11-24 11:07:33,387][train_crf.py] if_gpu           True
+[2018-11-24 11:07:33,387][train_crf.py] use_gpu          True
+[2018-11-24 11:07:33,388][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 11:07:33,388][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 11:07:33,388][train_crf.py] data_path        data/restaurant/
+[2018-11-24 11:07:33,388][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 11:07:33,388][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 11:07:33,388][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 11:07:33,388][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 11:07:33,388][train_crf.py] model_path       data/models/
+[2018-11-24 11:07:33,388][train_crf.py] log_path         data/logs/
+[2018-11-24 11:07:33,388][train_crf.py] is_stanford_nlp  False
+[2018-11-24 11:07:33,388][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 11:07:33,388][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 11:07:33,389][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 11:07:33,837][train_crf.py] Training Samples: 3001
+[2018-11-24 11:07:33,837][train_crf.py] Validating Samples: 601
+[2018-11-24 11:07:33,837][train_crf.py] Testing Samples: 1120
+[2018-11-24 11:11:42,108][train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[2018-11-24 11:11:42,117][train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[2018-11-24 11:11:42,120][train_crf.py] load_path        
+[2018-11-24 11:11:42,123][train_crf.py] e                False
+[2018-11-24 11:11:42,123][train_crf.py] exp_name         crf_elmo_exp001
+[2018-11-24 11:11:42,124][train_crf.py] arch             AspectSent
+[2018-11-24 11:11:42,124][train_crf.py] batch_size       32
+[2018-11-24 11:11:42,124][train_crf.py] embed_num        4334
+[2018-11-24 11:11:42,124][train_crf.py] embed_dim        1024
+[2018-11-24 11:11:42,124][train_crf.py] mask_dim         50
+[2018-11-24 11:11:42,124][train_crf.py] if_update_embed  True
+[2018-11-24 11:11:42,124][train_crf.py] l_hidden_size    512
+[2018-11-24 11:11:42,125][train_crf.py] l_num_layers     2
+[2018-11-24 11:11:42,125][train_crf.py] l_dropout        0.1
+[2018-11-24 11:11:42,125][train_crf.py] C1               0.1
+[2018-11-24 11:11:42,125][train_crf.py] C2               0.001
+[2018-11-24 11:11:42,125][train_crf.py] if_reset         True
+[2018-11-24 11:11:42,125][train_crf.py] opt              Adam
+[2018-11-24 11:11:42,125][train_crf.py] dropout          0.5
+[2018-11-24 11:11:42,125][train_crf.py] epoch            30
+[2018-11-24 11:11:42,125][train_crf.py] lr               0.0005
+[2018-11-24 11:11:42,126][train_crf.py] l2               0.0
+[2018-11-24 11:11:42,126][train_crf.py] adjust_every     8
+[2018-11-24 11:11:42,126][train_crf.py] clip_norm        3
+[2018-11-24 11:11:42,126][train_crf.py] k_fold           6
+[2018-11-24 11:11:42,126][train_crf.py] print_freq       10
+[2018-11-24 11:11:42,126][train_crf.py] finetune_embed   False
+[2018-11-24 11:11:42,126][train_crf.py] if_replace       False
+[2018-11-24 11:11:42,126][train_crf.py] training         True
+[2018-11-24 11:11:42,126][train_crf.py] if_gpu           True
+[2018-11-24 11:11:42,127][train_crf.py] use_gpu          True
+[2018-11-24 11:11:42,127][train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[2018-11-24 11:11:42,127][train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[2018-11-24 11:11:42,127][train_crf.py] data_path        data/restaurant/
+[2018-11-24 11:11:42,127][train_crf.py] train_path       data/restaurant/train.pkl
+[2018-11-24 11:11:42,127][train_crf.py] valid_path       data/restaurant/valid.pkl
+[2018-11-24 11:11:42,127][train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[2018-11-24 11:11:42,127][train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[2018-11-24 11:11:42,127][train_crf.py] model_path       data/models/
+[2018-11-24 11:11:42,127][train_crf.py] log_path         data/logs/
+[2018-11-24 11:11:42,128][train_crf.py] is_stanford_nlp  False
+[2018-11-24 11:11:42,128][train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[2018-11-24 11:11:42,128][train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[2018-11-24 11:11:42,128][train_crf.py] snapshot_dir     checkpoints/
+[2018-11-24 11:11:42,758][train_crf.py] Training Samples: 3001
+[2018-11-24 11:11:42,761][train_crf.py] Validating Samples: 601
+[2018-11-24 11:11:42,764][train_crf.py] Testing Samples: 1120
+[train_crf.py] Namespace(C1=0.1, C2=0.001, adjust_every=8, arch='AspectSent', batch_size=32, clip_norm=3, config='cfgs/crf_elmo_exp001.yaml', data_path='data/restaurant/', dic_path='data/restaurant/vocab/dict.pkl', dropout=0.5, e=False, elmo_config_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json', elmo_weight_file='../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5', embed_dim=1024, embed_num=4334, embed_path='data/restaurant/vocab/local_emb.pkl', epoch=30, exp_name='crf_elmo_exp001', finetune_embed=False, if_gpu=True, if_replace=False, if_reset=True, if_update_embed=True, is_stanford_nlp=False, k_fold=6, l2=0.0, l_dropout=0.1, l_hidden_size=512, l_num_layers=2, load_path='', log_path='data/logs/', lr=0.0005, mask_dim=50, model_path='data/models/', opt='Adam', pretrained_embed_path='../data/word_embeddings/glove.6B.300d.txt', print_freq=10, snapshot_dir='checkpoints/', test_path='data/restaurant/Restaurants_Test_Gold.xml.pkl', train_path='data/restaurant/train.pkl', training=True, use_gpu=True, valid_path='data/restaurant/valid.pkl')
+[train_crf.py] config           cfgs/crf_elmo_exp001.yaml
+[train_crf.py] load_path        
+[train_crf.py] e                False
+[train_crf.py] exp_name         crf_elmo_exp001
+[train_crf.py] arch             AspectSent
+[train_crf.py] batch_size       32
+[train_crf.py] embed_num        4334
+[train_crf.py] embed_dim        1024
+[train_crf.py] mask_dim         50
+[train_crf.py] if_update_embed  True
+[train_crf.py] l_hidden_size    512
+[train_crf.py] l_num_layers     2
+[train_crf.py] l_dropout        0.1
+[train_crf.py] C1               0.1
+[train_crf.py] C2               0.001
+[train_crf.py] if_reset         True
+[train_crf.py] opt              Adam
+[train_crf.py] dropout          0.5
+[train_crf.py] epoch            30
+[train_crf.py] lr               0.0005
+[train_crf.py] l2               0.0
+[train_crf.py] adjust_every     8
+[train_crf.py] clip_norm        3
+[train_crf.py] k_fold           6
+[train_crf.py] print_freq       10
+[train_crf.py] finetune_embed   False
+[train_crf.py] if_replace       False
+[train_crf.py] training         True
+[train_crf.py] if_gpu           True
+[train_crf.py] use_gpu          True
+[train_crf.py] pretrained_embed_path ../data/word_embeddings/glove.6B.300d.txt
+[train_crf.py] embed_path       data/restaurant/vocab/local_emb.pkl
+[train_crf.py] data_path        data/restaurant/
+[train_crf.py] train_path       data/restaurant/train.pkl
+[train_crf.py] valid_path       data/restaurant/valid.pkl
+[train_crf.py] test_path        data/restaurant/Restaurants_Test_Gold.xml.pkl
+[train_crf.py] dic_path         data/restaurant/vocab/dict.pkl
+[train_crf.py] model_path       data/models/
+[train_crf.py] log_path         data/logs/
+[train_crf.py] is_stanford_nlp  False
+[train_crf.py] elmo_config_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+[train_crf.py] elmo_weight_file ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+[train_crf.py] snapshot_dir     checkpoints/
+[train_crf.py] Training Samples: 3001
+[train_crf.py] Validating Samples: 601
+[train_crf.py] Testing Samples: 1120
+[train_crf.py] Start Experiment
+[train_crf.py] i_iter 1/93 cls_loss: 1.150216
+[train_crf.py] i_iter 2/93 cls_loss: 1.069134
+[train_crf.py] i_iter 3/93 cls_loss: 1.037100

@@ -172,7 +172,6 @@ class AspectSent(nn.Module):
 
         cls_loss = self.loss(scores, labels)
 
-        print('Transition', pena)
 
         return cls_loss + norm_pen
 

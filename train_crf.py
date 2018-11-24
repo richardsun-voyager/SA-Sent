@@ -77,21 +77,18 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
             sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_elmo_samples())
-            if args.use_gpu:
-                sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
-                label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
-            cls_loss = model(sent_vecs, mask_vecs, label_list, sent_lens)
+            cls_loss = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
             cls_loss_value.update(cls_loss.item())
             model.zero_grad()
             cls_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm, norm_type=2)
             optimizer.step()
 
-            if e_ % args.print_freq:
+            if idx % args.print_freq:
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
 
 
-        valid_acc = evaluate_test(dg_valid, model)
+        valid_acc = evaluate_test(dg_valid, model, args)
         logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
         if valid_acc > best_acc:
             is_best = True
@@ -112,13 +109,10 @@ def evaluate_test(dr_test, model, args):
     while dr_test.index < dr_test.data_len:
         sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
         sent = cat_layer(sent, mask)
-        if args.if_gpu:
-            sent, mask = sent.cuda(), mask.cuda()
-            label, sent_len = label.cuda(), sent_len.cuda()
-        pred_label, best_seq = model.predict(sent, mask, sent_len)
+        pred_label, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
         #visualize(sent, mask, best_seq, pred_label, label)
 
-        correct_count += sum(pred_label==label).item()
+        correct_count += sum(pred_label==label.cuda()).item()
 
     acc = correct_count * 1.0 / dr_test.data_len
     print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
