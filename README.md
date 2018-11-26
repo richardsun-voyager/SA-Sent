@@ -41,11 +41,11 @@ Note, in order to implement the following steps correctly, please enter the root
 
   ​
 
-4. Data has been processed in advance and put in the folder "data". If necessray, you can preprocess the original data by running command in your terminal, make sure you have activated "allennlp" environment:
+4. Data has been processed in advance and put in the folder "data". If necessray, you can preprocess the original data by running command in your terminal, make sure you have activated "allennlp" environment, the parameters can be specified in "*.yaml file":
 
   ```
   #Tokenize sentences and serialize them in local folder
-  python reader.py
+  python load_process_data.py
   ```
 
   ​

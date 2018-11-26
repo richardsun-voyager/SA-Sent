@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.nn import utils as nn_utils
 from util import *
 from torch.nn import utils as nn_utils
+from Layer import GloveMaskCat
 import torch.nn.init as init
 def init_ortho(module):
     for weight_ in module.parameters():
@@ -41,12 +42,12 @@ class MLSTM(nn.Module):
         return unpacked
 
 
-class CNN_Gate_Aspect_Text(nn.Module):
+class RNNCNNSent(nn.Module):
     def __init__(self, config):
         '''
         In this model, only context words are processed by gated CNN, target is average word embeddings
         '''
-        super(CNN_Gate_Aspect_Text, self).__init__()
+        super(RNNCNNSent, self).__init__()
         self.config = config
         
         #V = config.embed_num
@@ -55,18 +56,26 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
         Co = 128#kernel numbers
         Ks = [2, 3, 4]#kernel filter size
-        Kt = [2, 3]#kernel filter size for target words
+        Kt = [3]#kernel filter size for target words
 
         self.lstm = MLSTM(config)
 
         self.convs1 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
         self.convs2 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
         self.convs3 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=K-2) for K in Kt])
+        
+        self.convs4 = nn.ModuleList([nn.Conv1d(Co, Co, K) for K in Ks])
+        self.convs5 = nn.ModuleList([nn.Conv1d(Co, Co, K) for K in Ks])
+        
         self.fc_aspect = nn.Linear(len(Kt)*Co, Co)
 
         self.fc1 = nn.Linear(len(Ks)*Co, C)
+        
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
+        
+        self.cat_layer = GloveMaskCat(config)
+        self.cat_layer.load_vector()
 
 
     
@@ -110,11 +119,17 @@ class CNN_Gate_Aspect_Text(nn.Module):
         
         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
         y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
-        x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
+        x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
+        
+#         x = torch.cat(x, 2)#batch_size, Co, len-1+len-2
+        
+#         x = [F.tanh(conv(x.transpose(1, 2))) for conv in self.convs4]  # [(N,Co,L), ...]*len(Ks)
+#         y = [F.relu(conv(x.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs5]
+#         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
 
         # pooling method
         x0 = [F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
-        x0 = [i.view(i.size(0), -1) for i in x0]
+        x0 = [i.view(i.size(0), -1) for i in x0]#batch_size*2Co
 
         sents_vec = torch.cat(x0, 1)#N*(3*out_dim)
         #logit = self.fc1(x0)  # (N,C)
@@ -130,9 +145,9 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
 
     def forward(self, sents, masks, labels, lens):
-        #Sent emb_dim + 50
-        
-        sent = F.dropout(sents, p=0.2, training=self.training)
+        #Sent emb_dim 
+        sents, _ = self.cat_layer(sents, masks)
+        sents = F.dropout(sents, p=0.5, training=self.training)
         scores = self.compute_score(sents, masks, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
@@ -143,6 +158,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
     def predict(self, sents, masks, sent_lens):
         #sent = self.cat_layer(sent, mask)
+        sents, _ = self.cat_layer(sents, masks)
         scores = self.compute_score(sents, masks, sent_lens)
         _, pred_labels = scores.max(1)#Find the max label in the 2nd dimension
         

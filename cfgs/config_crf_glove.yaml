@@ -7,25 +7,25 @@ common:
     embed_num: 5120
     #For elmo the emb_size is 1024
     embed_dim: 300
-    mask_dim: 50
+    mask_dim: 30
     if_update_embed: True
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 300
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
     # penlaty
     C1: 0.1
-    C2: 0.001
+    C2: 0.1
     if_reset: True
 
     opt: Adam
     dropout: 0.5
     epoch: 30
-    lr: 0.0005
-    l2: 0.0
+    lr: 0.005
+    l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6

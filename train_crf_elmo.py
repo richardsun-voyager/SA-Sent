@@ -89,7 +89,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             is_best = False
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
-        test_acc = evaluate_test(dg_test, model, args)
+            test_acc = evaluate_test(dg_test, model, args, True)
         logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
 
@@ -97,8 +97,9 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
 def evaluate_test(dr_test, model, args, sample_out=False):
     
     mistake_samples = 'data/mistakes.txt'
-    with open(mistake_samples, 'w') as f:
-        f.write('Test begins...')
+    if sample_out:
+        with open(mistake_samples, 'w') as f:
+            f.write('Test begins...')
     logger.info("Evaluting")
     dr_test.reset_samples()
     model.eval()
@@ -106,7 +107,7 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     correct_count = 0
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
+        sent, mask, label, sent_len, texts, targets = next(dr_test.get_elmo_samples(is_with_texts=True))
         pred_label, _, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
         #visualize(sent, mask, best_seq, pred_label, label)
 

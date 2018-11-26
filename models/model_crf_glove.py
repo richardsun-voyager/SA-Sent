@@ -161,7 +161,6 @@ class AspectSent(nn.Module):
         #scores: batch_size*label_size
         #s_prob:batch_size*sent_len
         sents = self.cat_layer(sents, masks)
-        sents = self.dropout(sents)#regularization
         scores, s_prob  = self.compute_scores(sents, masks, lens)
         s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
 

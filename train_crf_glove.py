@@ -21,23 +21,32 @@ import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
 
+#Get model names in the folder
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
 
+#Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-
 parser.add_argument('--config', default='cfgs/config_crf_glove.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
 args = parser.parse_args()
+
+#tool functions
 def adjust_learning_rate(optimizer, epoch, args):
+    '''
+    Descend learning rate
+    '''
     lr = args.lr / (2 ** (epoch // args.adjust_every))
     print("Adjust lr to ", lr)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 def create_opt(parameters, config):
+    '''
+    Create optimizer
+    '''
     if config.opt == "SGD":
         optimizer = optim.SGD(parameters, lr=config.lr, weight_decay=config.l2)
     elif config.opt == "Adam":
@@ -49,15 +58,20 @@ def create_opt(parameters, config):
     return optimizer
 
 def mkdirs(dir):
+    '''
+    Create folder
+    '''
     if not os.path.exists(dir):
         os.mkdir(dir)
 
 def save_checkpoint(save_model, i_iter, args, is_best=True):
+    '''
+    Save the model to local disk
+    '''
     suffix = '{}_iter'.format(i_iter)
     dict_model = save_model.state_dict()
     print(args.snapshot_dir + suffix)
     filename = osp.join(args.snapshot_dir, suffix)
-
     save_best_checkpoint(dict_model, is_best, filename)
 
 
@@ -72,7 +86,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
         if e_ % args.adjust_every == 0:
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
-            sent_vecs, mask_vecs, label_list, sent_lens, _, _ = next(dg_train.get_ids_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples())
             cls_loss = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
             cls_loss_value.update(cls_loss.item())
             model.zero_grad()
@@ -90,11 +104,11 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             is_best = False
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
-        output_samples = False
-        if e_ % 10 == 0:
-            output_samples = True
-        test_acc = evaluate_test(dg_test, model, args, output_samples)
-        logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+            output_samples = False
+            if e_ % 10 == 0:
+                output_samples = True
+            test_acc = evaluate_test(dg_test, model, args, output_samples)
+            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
 
 
@@ -110,13 +124,13 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     correct_count = 0
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, texts,targets = next(dr_test.get_ids_samples())
+        sent, mask, label, sent_len, texts, targets, _ = next(dr_test.get_ids_samples())
         pred_label, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
-        #visualize(sent, mask, best_seq, pred_label, label)
 
+        #Compute correct predictions
         correct_count += sum(pred_label==label.cuda()).item()
         
-        ##Output wrong samples
+        ##Output wrong samples, for debugging
         indices = torch.nonzero(pred_label!=label.cuda())
         if len(indices) > 0:
             indices = indices.squeeze(1)
@@ -160,6 +174,8 @@ def main():
     tb_logger =SummaryWriter("logs/" + args.exp_name)
     global best_acc
     best_acc = 0
+    
+    ##Load datasets
     dr = data_reader(args)
     train_data = dr.load_data(args.train_path)
     valid_data = dr.load_data(args.valid_path)
@@ -167,6 +183,7 @@ def main():
     logger.info("Training Samples: {}".format(len(train_data)))
     logger.info("Validating Samples: {}".format(len(valid_data)))
     logger.info("Testing Samples: {}".format(len(test_data)))
+
 
     dg_train = data_generator(args, train_data)
     dg_valid = data_generator(args, valid_data, False)

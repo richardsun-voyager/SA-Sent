@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 256
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 

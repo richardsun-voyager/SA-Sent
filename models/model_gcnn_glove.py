@@ -30,7 +30,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         self.fc_aspect = nn.Linear(D, Co)
 
     
-    def compute_score(self, sent, target, lens):
+    def compute_score(self, sents, targets, lens):
         '''
         inputs are list of list for the convenince of top CRF
         Args:
@@ -40,15 +40,15 @@ class CNN_Gate_Aspect_Text(nn.Module):
         '''
 
         #Get the target embedding
-        batch_size, sent_len, dim = sent.size()
+        batch_size, sent_len, dim = sents.size()
         #Mask the padding embeddings
-        pack = nn_utils.rnn.pack_padded_sequence(sent, 
+        pack = nn_utils.rnn.pack_padded_sequence(sents, 
                                                  lens, batch_first=True)
         unpacked, _ = nn_utils.rnn.pad_packed_sequence(pack, batch_first=True)
         #Conv input: batch_size * emb_dim * max_len
         #Conv output: batch_size * out_dim * (max_len-k+1)
         x = [F.tanh(conv(unpacked.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-        y = [F.relu(conv(unpacked.transpose(1, 2)) + self.fc_aspect(target).unsqueeze(2)) for conv in self.convs2]
+        y = [F.relu(conv(unpacked.transpose(1, 2)) + self.fc_aspect(targets).unsqueeze(2)) for conv in self.convs2]
         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
 
         # pooling method
@@ -60,7 +60,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
         #Dropout
         if self.training:
-            sents_vec = F.dropout(sents_vec, self.config.dropout)
+            sents_vec = F.dropout(sents_vec, 0.2)
 
         output = self.fc1(sents_vec)#Bach_size*label_size
 
@@ -71,7 +71,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
     def forward(self, sent, target, label, lens):
         #Sent emb_dim + 50
         
-        sent = F.dropout(sent, p=0.2, training=self.training)
+        sent = F.dropout(sent, p=0.5, training=self.training)
         scores = self.compute_score(sent, target, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])

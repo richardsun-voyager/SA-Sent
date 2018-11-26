@@ -394,10 +394,11 @@ class dataHelper():
                 if opi_inst.polarity is None:  continue # conflict one
                 mask = opi_inst.target_mask
                 targets = opi_inst.target_tokens
+                target_ids = opi_inst.target_ids
                 polarity = opi_inst.class_ind
                 if tokens is None or mask is None or polarity is None: 
                     continue
-                all_triples.append([tokens, mask, polarity, token_ids, str(text), targets])
+                all_triples.append([tokens, mask, polarity, token_ids, str(text), targets, target_ids])
                 pair_couter[polarity] += 1
                 
         print(pair_couter)
@@ -636,11 +637,11 @@ class data_generator:
 
 
 
-    def elmo_transform(self, triples):
+    def elmo_transform(self, data):
         '''
         Transform sentences into elmo, each sentence represented by words
         '''
-        token_list, mask_list, label_list, _, texts, targets = zip(*triples)
+        token_list, mask_list, label_list, _, texts, targets, _ = zip(*data)
         sent_lens = [len(tokens) for tokens in token_list]
         sent_lens = torch.LongTensor(sent_lens)
         label_list = torch.LongTensor(label_list)
@@ -664,7 +665,7 @@ class data_generator:
     def reset_samples(self):
         self.index = 0
 
-    def pad_data(self, sents, masks, labels, texts, targets):
+    def pad_data(self, sents, masks, labels, texts, targets, target_ids):
         '''
         Padding sentences to same size
         '''
@@ -689,7 +690,8 @@ class data_generator:
         label_list = label_list[perm_idx]
         texts = [texts[i.item()] for i in perm_idx]
         targets = [targets[i.item()] for i in perm_idx]
-        return sent_ids, mask_vecs, label_list, sent_lens, texts, targets
+        target_ids = [target_ids[i.item()] for i in perm_idx]
+        return sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids 
 
     def get_ids_samples(self, is_balanced=False):
         '''
@@ -700,10 +702,13 @@ class data_generator:
                 samples = self.generate_balanced_sample(self.data_batch)
             else:
                 samples = self.generate_sample(self.data_batch)
-            tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
+            tokens, mask_list, label_list, token_ids, texts, targets, target_ids = zip(*samples)
             #Sorted according to the length
-            sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids,mask_list, 
-                                                                                        label_list, texts, targets)
+            sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids,
+                                                                                                   mask_list, 
+                                                                                                   label_list, 
+                                                                                                   texts, targets, 
+                                                                                                   target_ids)
         else:
             if self.index == self.data_len:
                 print('Testing Over!')
@@ -714,19 +719,26 @@ class data_generator:
                 end = start + self.config.batch_size
                 samples = self.data_batch[start: end]
                 self.index = end
-                tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
+                tokens, mask_list, label_list, token_ids, texts, targets, target_ids = zip(*samples)
                 #Sorting happens here
-                sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids, mask_list, 
-                                                                                    label_list, texts, targets)
+                sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids,
+                                                                                                       mask_list,
+                                                                                                       label_list, texts, 
+                                                                                                       targets, target_ids)
 
             else:#Then generate testing data one by one
                 samples =  self.data_batch[self.index:] 
                 if self.index == self.data_len - 1:#if only one sample left
                     samples = [samples]
-                tokens, mask_list, label_list, token_ids, texts, targets = zip(*samples)
-                sent_ids, mask_vecs, label_list, sent_lens, texts, targets = self.pad_data(token_ids, mask_list, label_list, texts, targets)
+                tokens, mask_list, label_list, token_ids, texts, targets, target_ids = zip(*samples)
+                sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids, 
+                                                                                                       mask_list, 
+                                                                                                       label_list, 
+                                                                                                       texts, 
+                                                                                                       targets, 
+                                                                                                       target_ids)
                 self.index += len(samples)
-        yield sent_ids, mask_vecs, label_list, sent_lens, texts, targets
+        yield sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids
 
     def get_elmo_samples(self, is_with_texts=False):
         '''
