@@ -138,9 +138,7 @@ def main():
         setattr(args, k, v)
     mkdirs(osp.join("logs/"+args.exp_name))
     mkdirs(osp.join("checkpoints/"+args.exp_name))
-    global logger
     logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
-
     logger.info('{}'.format(args))
 
 

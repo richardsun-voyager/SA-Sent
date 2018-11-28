@@ -27,7 +27,7 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/config_crf_glove.yaml')
+parser.add_argument('--config', default='cfgs/config_crf_rnn_glove.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 

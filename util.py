@@ -58,8 +58,9 @@ def save_checkpoint(state, is_best, filename = ''):
 
 
 def create_logger(name, log_file, level=logging.INFO):
+    print(level)
     l = logging.getLogger(name)
-    formatter = logging.Formatter('[%(filename)s] %(message)s')
+    formatter = logging.Formatter('[line:%(lineno)4d] %(message)s')
     fh = logging.FileHandler(log_file)
     fh.setFormatter(formatter)
     sh = logging.StreamHandler()

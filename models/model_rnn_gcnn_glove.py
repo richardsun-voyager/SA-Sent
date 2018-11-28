@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.nn import utils as nn_utils
 from util import *
 from torch.nn import utils as nn_utils
-from Layer import GloveMaskCat
+from Layer import GloveMaskCat, SimpleCat
 import torch.nn.init as init
 def init_ortho(module):
     for weight_ in module.parameters():
@@ -16,7 +16,7 @@ class MLSTM(nn.Module):
         super(MLSTM, self).__init__()
         self.config = config
         #The concatenated word embedding and target embedding as input
-        self.rnn = nn.LSTM(config.embed_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.LSTM(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -56,7 +56,7 @@ class RNNCNNSent(nn.Module):
 
         Co = 128#kernel numbers
         Ks = [2, 3, 4]#kernel filter size
-        Kt = [3]#kernel filter size for target words
+        Kt = [2, 3]#kernel filter size for target words
 
         self.lstm = MLSTM(config)
 
@@ -74,7 +74,7 @@ class RNNCNNSent(nn.Module):
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         
-        self.cat_layer = GloveMaskCat(config)
+        self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
 
 
@@ -117,15 +117,15 @@ class RNNCNNSent(nn.Module):
         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
         aspect_v = self.fc_aspect(aspect_v)
         
-        x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-        y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
+#         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
+#         #y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
+#         y = [F.relu(aspect_v.unsqueeze(2)) for conv in self.convs2]
+#         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
+        
+        x = [conv(context.transpose(1, 2)) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
+        y = [F.tanh(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
+        #y = [F.sigmoid(aspect_v.unsqueeze(2)) for conv in self.convs2]
         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
-        
-#         x = torch.cat(x, 2)#batch_size, Co, len-1+len-2
-        
-#         x = [F.tanh(conv(x.transpose(1, 2))) for conv in self.convs4]  # [(N,Co,L), ...]*len(Ks)
-#         y = [F.relu(conv(x.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs5]
-#         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
 
         # pooling method
         x0 = [F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
@@ -146,8 +146,9 @@ class RNNCNNSent(nn.Module):
 
     def forward(self, sents, masks, labels, lens):
         #Sent emb_dim 
-        sents, _ = self.cat_layer(sents, masks)
-        sents = F.dropout(sents, p=0.5, training=self.training)
+        sents = self.cat_layer(sents, masks)#mask embedding
+        #sents, _ = self.cat_layer(sents, masks)
+        #sents = F.dropout(sents, p=0.5, training=self.training)
         scores = self.compute_score(sents, masks, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
@@ -157,8 +158,8 @@ class RNNCNNSent(nn.Module):
         return cls_loss 
 
     def predict(self, sents, masks, sent_lens):
-        #sent = self.cat_layer(sent, mask)
-        sents, _ = self.cat_layer(sents, masks)
+        sents = self.cat_layer(sents, masks)#mask embedding
+        #sents, _ = self.cat_layer(sents, masks)
         scores = self.compute_score(sents, masks, sent_lens)
         _, pred_labels = scores.max(1)#Find the max label in the 2nd dimension
         

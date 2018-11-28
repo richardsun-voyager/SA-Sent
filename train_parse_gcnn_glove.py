@@ -148,7 +148,7 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
 def main():
     """ Create the model and start the training."""
-    files = ['cfgs/config_parse_gcnn_glove1.yaml', 'cfgs/config_parse_gcnn_glove2.yaml']
+    files = ['cfgs/config_parse_gcnn_glove1.yaml']
     for file in files:
         with open(file) as f:
             config = yaml.load(f)
@@ -185,7 +185,6 @@ def main():
         logger.info("Training Samples: {}".format(len(train_data)))
         logger.info("Validating Samples: {}".format(len(valid_data)))
         logger.info("Testing Samples: {}".format(len(test_data)))
-        print(train_data[0])
 
         dg_train = data_generator(args, train_data)
         dg_valid = data_generator(args, valid_data, False)

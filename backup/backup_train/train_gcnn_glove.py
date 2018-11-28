@@ -10,7 +10,7 @@ import numpy as np
 import codecs
 import copy
 import os
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, f1_score
 torch.manual_seed(222)
 
 def adjust_learning_rate(optimizer, epoch):

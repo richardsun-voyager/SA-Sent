@@ -4,22 +4,13 @@ import torch.nn.functional as F
 from torch.nn import utils as nn_utils
 from util import *
 from torch.nn import utils as nn_utils
-from Layer import GloveMaskCat
+from Layer import SimpleCat
 import torch.nn.init as init
 import numpy as np
 from parse_path import constituency_path
 
 cp = constituency_path()
 
-def get_parse_pos(texts, max_len):
-    parse_pos = np.ones([len(texts), max_len, 15]) * (-1)
-    for i, text in enumerate(texts):
-        parsed_sent = cp.build_parser(text)
-        positions = cp.get_leave_pos(parsed_sent)
-        pad_pos = cp.get_parse_feature(positions)
-        parse_pos[i, :len(positions)] = pad_pos
-    parse_pos = torch.FloatTensor(parse_pos).cuda()
-    return parse_pos
 
 def init_ortho(module):
     for weight_ in module.parameters():
@@ -31,7 +22,7 @@ class MLSTM(nn.Module):
         super(MLSTM, self).__init__()
         self.config = config
         #The concatenated word embedding and target embedding as input
-        self.rnn = nn.LSTM(config.embed_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.LSTM(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -66,7 +57,7 @@ class ParseGCNNSent(nn.Module):
         self.config = config
         
         #V = config.embed_num
-        D = config.l_hidden_size + 15
+        D = config.l_hidden_size
         C = 3#config.class_num
 
         Co = 128#kernel numbers
@@ -84,29 +75,26 @@ class ParseGCNNSent(nn.Module):
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         
-        self.cat_layer = GloveMaskCat(config)
+        self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
 
 
     
-    def compute_score(self, sents, masks, lens, parse_pos):
+    def compute_score(self, sents, masks, lens, texts):
         '''
         inputs are list of list for the convenince of top CRF
         Args:
         sents: a list of sentences， batch_size*max_len*(2*emb_dim)
         masks: a list of binry to indicate target position, batch_size*max_len
         label: a list labels
+        weights: batch_size, max_len
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
         context = self.lstm(sents, lens)
-        
-        context = torch.cat([context,parse_pos], 2)#concat parsing position info
 
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
-        
-        
-        
+
         #Find target indices, a list of indices
         target_indices, target_max_len = convert_mask_index(masks)
 
@@ -121,13 +109,19 @@ class ParseGCNNSent(nn.Module):
         for i, index in enumerate(target_indices):
             target_embe_squeeze[i][:len(index)] = target_emb[i][index]
         if self.config.if_gpu: target_embe_squeeze = target_embe_squeeze.cuda()
+            
+        #Get the parsing weights
+        weights = get_context_weight(texts, target_indices, sent_len)
+        weights = weights.expand(dim, batch_size, sent_len).transpose(0, 1).transpose(1, 2)
+        if self.config.if_gpu: weights = weights.cuda()
+        context = context * weights
         
         #Conv input: batch_size * emb_dim * max_len
         #Conv output: batch_size * out_dim * (max_len-k+1)
         target_conv = [self.relu(conv(target_embe_squeeze.transpose(1, 2))) for conv in self.convs3]  # [(N,Co,L), ...]*len(Ks)
         aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
-        aspect_v = self.fc_aspect(aspect_v)
+        aspect_v = self.fc_aspect(aspect_v)#batch_size, Co
         
         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
         y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
@@ -138,7 +132,6 @@ class ParseGCNNSent(nn.Module):
         x0 = [i.view(i.size(0), -1) for i in x0]
 
         sents_vec = torch.cat(x0, 1)#N*(3*out_dim)
-        #logit = self.fc1(x0)  # (N,C)
 
         #Dropout
         if self.training:
@@ -153,13 +146,11 @@ class ParseGCNNSent(nn.Module):
     def forward(self, sents, masks, labels, lens, texts):
         #Sent emb_dim 
         #Map words to embeddings
-        sents, _ = self.cat_layer(sents, masks)
-        sents = F.dropout(sents, p=0.2, training=self.training)
-        #Get parsing positions
-        max_len = masks.size(1)
-        parse_pos = get_parse_pos(texts, max_len)
+        sents = self.cat_layer(sents, masks)
+        #sents = F.dropout(sents, p=0.5, training=self.training)
+
         #Compute score
-        scores = self.compute_score(sents, masks, lens, parse_pos)
+        scores = self.compute_score(sents, masks, lens, texts)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
         cls_loss = loss(scores, labels)
@@ -169,11 +160,10 @@ class ParseGCNNSent(nn.Module):
 
     def predict(self, sents, masks, sent_lens, texts):
         #sent = self.cat_layer(sent, mask)
-        sents, _ = self.cat_layer(sents, masks)
-        #Get parsing positions
-        max_len = masks.size(1)
-        parse_pos = get_parse_pos(texts, max_len)
-        scores = self.compute_score(sents, masks, sent_lens, parse_pos)
+        sents = self.cat_layer(sents, masks)
+
+        #Compute score
+        scores = self.compute_score(sents, masks, sent_lens, texts)
         _, pred_labels = scores.max(1)#Find the max label in the 2nd dimension
         
         #Modified by Richard Sun
@@ -196,3 +186,30 @@ def convert_mask_index(masks):
         print('Mask Data Error')
         print(mask)
     return target_indice, max_len
+
+
+def get_context_weight(texts, targets, max_len):
+    '''
+    Constituency weight
+    '''
+    
+    weights = np.zeros([len(texts), max_len])#Fill the padding one as 0
+    for i, token in enumerate(texts):
+        max_w, min_w, a_v = cp.proceed(token, targets[i])
+        
+        #get the distance
+        weights[i, :len(max_w)] = max_w
+    weights = torch.FloatTensor(weights)
+    weights.required_grad = False
+    return weights
+
+
+def get_parse_pos(texts, max_len):
+    parse_pos = np.ones([len(texts), max_len, 15]) * (-1)
+    for i, text in enumerate(texts):
+        parsed_sent = cp.build_parser(text)
+        positions = cp.get_leave_pos(parsed_sent)
+        pad_pos = cp.get_parse_feature(positions)
+        parse_pos[i, :len(positions)] = pad_pos
+    parse_pos = torch.FloatTensor(parse_pos).cuda()
+    return parse_pos

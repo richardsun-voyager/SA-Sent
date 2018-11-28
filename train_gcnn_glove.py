@@ -20,6 +20,7 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
+from sklearn.metrics import confusion_matrix, f1_score
 
 #Get model names in the folder
 model_names = sorted(name for name in models.__dict__
@@ -52,9 +53,9 @@ def create_opt(parameters, config):
     elif config.opt == "Adam":
         optimizer = optim.Adam(parameters, lr=config.lr, weight_decay=config.l2)
     elif config.opt == "Adadelta":
-        optimizer = optim.Adadelta(parameters, lr=config.lr)
+        optimizer = optim.Adadelta(parameters, lr=config.lr, weight_decay=config.l2)
     elif config.opt == "Adagrad":
-        optimizer = optim.Adagrad(parameters, lr=config.lr)
+        optimizer = optim.Adagrad(parameters, lr=config.lr, weight_decay=config.l2)
     return optimizer
 
 def mkdirs(dir):
@@ -104,11 +105,11 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             is_best = False
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
-            output_samples = False
-            if e_ % 10 == 0:
-                output_samples = True
-            test_acc = evaluate_test(dg_test, model, args, output_samples)
-            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+        output_samples = False
+        if e_ % 10 == 0:
+            output_samples = True
+        test_acc = evaluate_test(dg_test, model, args, output_samples)
+        logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
 
 
@@ -122,12 +123,17 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     model.eval()
     all_counter = 0
     correct_count = 0
+    true_labels = []
+    pred_labels = []
     while dr_test.index < dr_test.data_len:
         sent, mask, label, sent_len, texts, targets, _ = next(dr_test.get_ids_samples())
         pred_label = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
 
         #Compute correct predictions
         correct_count += sum(pred_label==label.cuda()).item()
+        
+        true_labels.extend(label.cpu().numpy())
+        pred_labels.extend(pred_label.cpu().numpy())
         
         ##Output wrong samples, for debugging
         indices = torch.nonzero(pred_label!=label.cuda())
@@ -141,7 +147,10 @@ def evaluate_test(dr_test, model, args, sample_out=False):
             
 
     acc = correct_count * 1.0 / dr_test.data_len
-    print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    print('Confusion Matrix')
+    print(confusion_matrix(true_labels, pred_labels))
+    print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
+    #print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
 
@@ -189,10 +198,11 @@ def main():
     dg_test = data_generator(args, test_data, False)
 
     model = models.__dict__[args.arch](args)
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = create_opt(parameters, args)
     if args.use_gpu:
         model.cuda()
+        
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = create_opt(parameters, args)
 
 
     if args.training:
