@@ -21,6 +21,7 @@ import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
 
+
 #Get model names in the folder
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
@@ -68,14 +69,14 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
     '''
     Save the model to local disk
     '''
-    suffix = '{}_iter'.format(i_iter)
+#     suffix = '{}_iter'.format(0)
     dict_model = save_model.state_dict()
-    print(args.snapshot_dir + suffix)
-    filename = osp.join(args.snapshot_dir, suffix)
+#     print(args.snapshot_dir + suffix)
+    filename = args.snapshot_dir
     save_best_checkpoint(dict_model, is_best, filename)
 
 
-def train(model, dg_train, dg_valid, dg_test, optimizer, args):
+def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
     cls_loss_value = AverageMeter(10)
     best_acc = 0
     model.train()
@@ -94,14 +95,14 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm, norm_type=2)
             optimizer.step()
 
-            if idx % args.print_freq:
+            if idx % args.print_freq == 0:
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
-
-
+                tb_logger.add_scalar("train_loss", idx+e_*loops, cls_loss_value.avg)
+                
         valid_acc = evaluate_test(dg_valid, model, args)
         logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
         if valid_acc > best_acc:
-            is_best = False
+            is_best = True
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
             output_samples = False
@@ -110,6 +111,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             test_acc = evaluate_test(dg_test, model, args, output_samples)
             logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
+        is_best = False
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):
@@ -197,7 +199,7 @@ def main():
 
 
     if args.training:
-        train(model, dg_train, dg_valid, dg_test, optimizer, args)
+        train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger)
     else:
         pass
 

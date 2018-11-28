@@ -7,6 +7,9 @@ import numpy as np
 from torch.autograd import Variable
 import pdb
 import logging
+import shutil
+import os.path as osp
+
 
 def to_scalar(var):
     # returns a python float
@@ -52,9 +55,9 @@ class AverageMeter(object):
 
 
 def save_checkpoint(state, is_best, filename = ''):
-    torch.save(state, filename + 'checkpoint.pth.tar')
+    torch.save(state, osp.join(filename, 'checkpoint.pth.tar'))
     if is_best:
-        shutil.copyfile(filename + 'checkpoint.pth.tar', filename + 'model_best.pth.tar')
+        shutil.copyfile(osp.join(filename, 'checkpoint.pth.tar'), osp.join(filename,  'model_best.pth.tar'))
 
 
 def create_logger(name, log_file, level=logging.INFO):
