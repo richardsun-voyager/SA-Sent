@@ -80,16 +80,19 @@ class CRFAspectSent(nn.Module):
         self.config = config
 
         self.bilstm = biLSTM(config)
-        self.feat2tri = nn.Linear(config.l_hidden_size, 2)
+        self.feat2tri = nn.Linear(2*config.l_hidden_size, 2)
+        self.target2tri = nn.Linear(config.l_hidden_size, 2)
+        
         self.inter_crf = LinearCRF(config)
-        self.feat2label = nn.Linear(config.l_hidden_size, 3)
+        self.feat2label = nn.Linear(2*config.l_hidden_size, 3)
 
         self.loss = nn.NLLLoss()
+        self.tanh = nn.Tanh()
         self.cat_layer = SimpleCat(config)
+        self.cat_layer.load_vector()
         #Modified by Richard Sun
-
-    
-    def compute_scores(self, sents, masks, lens):
+        
+    def compute_scores(self, sents, masks, lens, is_training=True):
         '''
         Args:
         sents: batch_size*max_len*word_dim
@@ -108,74 +111,35 @@ class CRFAspectSent(nn.Module):
         masks = masks.type_as(context)
         masks = masks.expand(hidden_dim, batch_size, max_len).transpose(0, 1).transpose(1, 2)
         target_emb = masks * context
+#         #Get embeddings for each target
+#         if target_max_len<3:
+#             target_max_len = 3
+#         target_embe_squeeze = torch.zeros(batch_size, target_max_len, hidden_dim)
+#         for i, index in enumerate(target_indices):
+#             target_embe_squeeze[i][:len(index)] = target_emb[i][index]
+#         if self.config.if_gpu: target_embe_squeeze = target_embe_squeeze.cuda()
+            
+#         #Conv output: batch_size * out_dim * (max_len-k+1)
+#         target_conv = [F.relu(conv(target_embe_squeeze.transpose(1, 2))) for conv in self.convs]  # [(N,Co,L), ...]*len(Ks)
+#         aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
+#         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
+#         aspect_v = self.fc_aspect(aspect_v)#batch_size * hidden_dim
         
         target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
         #Expand dimension for concatenation
         target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim)
         target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+
+
         
-        
-        context = context + target_emb_avg_exp
+        context = torch.cat([context, target_emb_avg_exp], 2)#Batch_size*max_len*2embedding
         
         tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        
         
         #Take target embedding into consideration
         
         
-        
-        marginals = []
-        select_polarities = []
-        label_scores = []
-        #Sentences have different lengths, so deal with them one by one
-        for i, tri_score in enumerate(tri_scores):
-            sent_len = lens[i].cpu().item()
-            if sent_len > 1:
-                tri_score = tri_score[:sent_len, :]#sent_len, 2
-            else:
-                print('Too short sentence')
-            marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
-            #Get only the positive latent factor
-            select_polarity = marginal[:, 1]#sent_len, select only positive ones
-
-            marginal = marginal.transpose(0, 1)  # 2 * sent_len
-            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
-            label_score = self.feat2label(sent_v).squeeze(0)#label_size
-            label_scores.append(label_score)
-            select_polarities.append(select_polarity)
-            marginals.append(marginal)
-        
-        label_scores = torch.stack(label_scores)
-
-        return label_scores, select_polarities
-
-    def compute_predict_scores(self, sents, masks, lens):
-        '''
-        Args:
-        sents: batch_size*max_len*word_dim
-        masks: batch_size*max_len
-        lens: batch_size
-        '''
-
-        context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
-        batch_size, max_len, hidden_dim = context.size()
-        #Target embeddings
-        #Find target indices, a list of indices
-        target_indices, target_max_len = convert_mask_index(masks)
-
-        #Find the target context embeddings, batch_size*max_len*hidden_size
-        masks = masks.type_as(context)
-        masks = masks.expand(hidden_dim, batch_size, max_len).transpose(0, 1).transpose(1, 2)
-        target_emb = masks * context
-        
-        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
-        #Expand dimension for concatenation
-        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim)
-        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
-        
-        context = context + target_emb_avg_exp
-        
-        
-        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
         marginals = []
         select_polarities = []
@@ -193,15 +157,19 @@ class CRFAspectSent(nn.Module):
             #Get only the positive latent factor
             select_polarity = marginal[:, 1]#sent_len, select only positive ones
 
-            marginal = marginal.transpose(0, 1)  # 2 * sent_len
-            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i][:sent_len]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
             label_score = self.feat2label(sent_v).squeeze(0)#label_size
             label_scores.append(label_score)
+            select_polarities.append(select_polarity)
             best_latent_seqs.append(best_latent_seq)
+            marginals.append(marginal)
         
         label_scores = torch.stack(label_scores)
+        if is_training:
+            return label_scores, select_polarities
+        else:
+            return label_scores, best_latent_seqs
 
-        return label_scores, best_latent_seqs
 
     
     def forward(self, sents, masks, labels, lens):
@@ -227,14 +195,11 @@ class CRFAspectSent(nn.Module):
         
         cls_loss = self.loss(scores, labels)
 
-        print('Transition', pena)
-
-        print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
-        return cls_loss + norm_pen 
+        return cls_loss, norm_pen 
 
     def predict(self, sents, masks, sent_lens):
         sents = self.cat_layer(sents, masks)
-        scores, best_seqs = self.compute_predict_scores(sents, masks, sent_lens)
+        scores, best_seqs = self.compute_scores(sents, masks, sent_lens, False)
         _, pred_label = scores.max(1)    
         
         #Modified by Richard Sun

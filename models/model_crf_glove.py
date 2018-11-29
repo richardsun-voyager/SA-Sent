@@ -64,6 +64,7 @@ class AspectSent(nn.Module):
         self.dropout = nn.Dropout(0.3)
         #Modified by Richard Sun
         self.cat_layer = SimpleCat(config)
+        self.cat_layer.load_vector()
 
     
     def compute_scores(self, sents, masks, lens):
@@ -73,11 +74,13 @@ class AspectSent(nn.Module):
         masks: batch_size*max_len
         lens: batch_size
         '''
+        if self.config.if_reset:  self.cat_layer.reset_binary()
+            
         batch_size, max_len, _ = sents.size()
 
         context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
         
-        tri_scores = self.tanh(self.feat2tri(context)) #Batch_size*sent_len*2
+        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
         #Take target embedding into consideration
         
@@ -115,12 +118,14 @@ class AspectSent(nn.Module):
         masks: batch_size*max_len
         lens: batch_size
         '''
+        
+        if self.config.if_reset:  self.cat_layer.reset_binary()
 
         batch_size, max_len, _ = sents.size()
         #batch_size*target_len*emb_dim
         context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
         
-        tri_scores = self.tanh(self.feat2tri(context)) #Batch_size*sent_len*2
+        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
         marginals = []
         select_polarities = []
@@ -172,10 +177,8 @@ class AspectSent(nn.Module):
         
         cls_loss = self.loss(scores, labels)
 
-        print('Transition', pena)
 
-        print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
-        return cls_loss + norm_pen 
+        return cls_loss, norm_pen 
 
     def predict(self, sents, masks, sent_lens):
         sents = self.cat_layer(sents, masks)

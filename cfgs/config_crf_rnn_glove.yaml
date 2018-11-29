@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_rnn_glove
+    exp_name: config_crf_rnn_glove001
     arch: CRFAspectSent
     batch_size: 32
 
@@ -24,12 +24,12 @@ common:
     opt: Adam
     dropout: 0.5
     epoch: 30
-    lr: 0.005
+    lr: 0.003
     l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
-    print_freq: 10
+    print_freq: 30
     finetune_embed: False
     # data processing
     if_replace: False

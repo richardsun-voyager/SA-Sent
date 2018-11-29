@@ -90,7 +90,6 @@ class SimpleCat(nn.Module):
         if self.config.if_gpu:  
             sent, mask = sent.cuda(), mask.cuda()
         # to embeddings
-        sent_vec = sent # batch_siz*sent_len * dim
         if is_elmo:
             sent_vec = sent # batch_siz*sent_len * dim
         else:
@@ -98,7 +97,6 @@ class SimpleCat(nn.Module):
             
         mask_vec = self.mask_embed(mask) # batch_size*max_len* dim
         #print(mask_vec.size())
-        
         sent_vec = self.dropout(sent_vec)
         #Concatenation
         sent_vec = torch.cat([sent_vec, mask_vec], 2)

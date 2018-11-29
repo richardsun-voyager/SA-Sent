@@ -1,35 +1,35 @@
 common:
-    exp_name: config_crf_glove_002
-    arch: AspectSent
-    batch_size: 16
+    exp_name: config_gcnn_glove4
+    arch: RNNCNNSent
+    batch_size: 64
 
     #Map words to lower case
     embed_num: 5120
     #For elmo the emb_size is 1024
     embed_dim: 300
-    mask_dim: 30
+    mask_dim: 50
     if_update_embed: True
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 300
+    l_hidden_size: 256
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
     # penlaty
     C1: 0.1
-    C2: 0.00
+    C2: 0.05
     if_reset: True
 
-    opt: Adam
+    opt: Adagrad
     dropout: 0.5
-    epoch: 30
-    lr: 0.001
+    epoch: 50
+    lr: 0.003
     l2: 0.000
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
-    print_freq: 20
+    print_freq: 30
     finetune_embed: False
     # data processing
     if_replace: False

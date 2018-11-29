@@ -69,10 +69,8 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
     '''
     Save the model to local disk
     '''
-    suffix = '{}_iter'.format(i_iter)
     dict_model = save_model.state_dict()
-    print(args.snapshot_dir + suffix)
-    filename = osp.join(args.snapshot_dir, suffix)
+    filename = args.snapshot_dir
     save_best_checkpoint(dict_model, is_best, filename)
 
 
@@ -87,7 +85,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
         if e_ % args.adjust_every == 0:
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
-            sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples(True))
             cls_loss = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
             cls_loss_value.update(cls_loss.item())
             model.zero_grad()
@@ -95,7 +93,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm, norm_type=2)
             optimizer.step()
 
-            if idx % args.print_freq:
+            if idx % args.print_freq == 0:
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
 
 
@@ -105,11 +103,11 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             is_best = False
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
-        output_samples = False
-        if e_ % 10 == 0:
-            output_samples = True
-        test_acc = evaluate_test(dg_test, model, args, output_samples)
-        logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+            output_samples = False
+            if e_ % 10 == 0:
+                output_samples = True
+            test_acc = evaluate_test(dg_test, model, args, output_samples)
+            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
 
 
@@ -156,59 +154,63 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
 def main():
     """ Create the model and start the training."""
-    with open(args.config) as f:
-        config = yaml.load(f)
+    files = ['cfgs/config_rnn_gcnn_glove1.yaml', 'cfgs/config_rnn_gcnn_glove2.yaml',
+             'cfgs/config_rnn_gcnn_glove3.yaml', 'cfgs/config_rnn_gcnn_glove4.yaml']
+    for file in files:
+        print('Configure ###########')
+        with open(file) as f:
+            config = yaml.load(f)
 
 
-    for k, v in config['common'].items():
-        setattr(args, k, v)
-    mkdirs(osp.join("logs/"+args.exp_name))
-    mkdirs(osp.join("checkpoints/"+args.exp_name))
-    global logger
-    logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
+        for k, v in config['common'].items():
+            setattr(args, k, v)
+        mkdirs(osp.join("logs/"+args.exp_name))
+        mkdirs(osp.join("checkpoints/"+args.exp_name))
+        global logger
+        logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
 
-    logger.info('{}'.format(args))
-
-
-    for key, val in vars(args).items():
-        logger.info("{:16} {}".format(key, val))
+        logger.info('{}'.format(args))
 
 
-
-    cudnn.enabled = True
-    args.snapshot_dir = osp.join(args.snapshot_dir, args.exp_name)
-
-    global tb_logger
-    tb_logger =SummaryWriter("logs/" + args.exp_name)
-    global best_acc
-    best_acc = 0
-    
-    ##Load datasets
-    dr = data_reader(args)
-    train_data = dr.load_data(args.train_path)
-    valid_data = dr.load_data(args.valid_path)
-    test_data = dr.load_data(args.test_path)
-    logger.info("Training Samples: {}".format(len(train_data)))
-    logger.info("Validating Samples: {}".format(len(valid_data)))
-    logger.info("Testing Samples: {}".format(len(test_data)))
+        for key, val in vars(args).items():
+            logger.info("{:16} {}".format(key, val))
 
 
-    dg_train = data_generator(args, train_data)
-    dg_valid = data_generator(args, valid_data, False)
-    dg_test = data_generator(args, test_data, False)
 
-    model = models.__dict__[args.arch](args)
-    if args.use_gpu:
-        model.cuda()
-        
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = create_opt(parameters, args)
+        cudnn.enabled = True
+        args.snapshot_dir = osp.join(args.snapshot_dir, args.exp_name)
+
+        global tb_logger
+        tb_logger =SummaryWriter("logs/" + args.exp_name)
+        global best_acc
+        best_acc = 0
+
+        ##Load datasets
+        dr = data_reader(args)
+        train_data = dr.load_data(args.train_path)
+        valid_data = dr.load_data(args.valid_path)
+        test_data = dr.load_data(args.test_path)
+        logger.info("Training Samples: {}".format(len(train_data)))
+        logger.info("Validating Samples: {}".format(len(valid_data)))
+        logger.info("Testing Samples: {}".format(len(test_data)))
 
 
-    if args.training:
-        train(model, dg_train, dg_valid, dg_test, optimizer, args)
-    else:
-        pass
+        dg_train = data_generator(args, train_data)
+        dg_valid = data_generator(args, valid_data, False)
+        dg_test = data_generator(args, test_data, False)
+
+        model = models.__dict__[args.arch](args)
+        if args.use_gpu:
+            model.cuda()
+
+        parameters = filter(lambda p: p.requires_grad, model.parameters())
+        optimizer = create_opt(parameters, args)
+
+
+        if args.training:
+            train(model, dg_train, dg_valid, dg_test, optimizer, args)
+        else:
+            pass
 
 
 

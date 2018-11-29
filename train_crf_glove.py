@@ -20,7 +20,7 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
-
+from sklearn.metrics import confusion_matrix, f1_score
 
 #Get model names in the folder
 model_names = sorted(name for name in models.__dict__
@@ -88,14 +88,17 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
             sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples())
-            cls_loss = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
+            cls_loss, norm_pen = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
             cls_loss_value.update(cls_loss.item())
+
+            total_loss = cls_loss + norm_pen
             model.zero_grad()
-            cls_loss.backward()
+            total_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm, norm_type=2)
             optimizer.step()
 
             if idx % args.print_freq == 0:
+                print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
                 tb_logger.add_scalar("train_loss", idx+e_*loops, cls_loss_value.avg)
                 
@@ -124,6 +127,8 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     model.eval()
     all_counter = 0
     correct_count = 0
+    true_labels = []
+    pred_labels = []
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
         sent, mask, label, sent_len, texts, targets, _ = next(dr_test.get_ids_samples())
@@ -131,6 +136,9 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
         #Compute correct predictions
         correct_count += sum(pred_label==label.cuda()).item()
+        
+        true_labels.extend(label.cpu().numpy())
+        pred_labels.extend(pred_label.cpu().numpy())
         
         ##Output wrong samples, for debugging
         indices = torch.nonzero(pred_label!=label.cuda())
@@ -144,7 +152,11 @@ def evaluate_test(dr_test, model, args, sample_out=False):
             
 
     acc = correct_count * 1.0 / dr_test.data_len
-    print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    
+    print('Confusion Matrix')
+    print(confusion_matrix(true_labels, pred_labels))
+    print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
+    print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
 
