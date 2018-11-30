@@ -66,22 +66,23 @@ class ElmoAspectSent(nn.Module):
         self.cat_layer = SimpleCat(config)
 
     
-    def compute_scores(self, sents, masks, lens):
+    def compute_scores(self, sents, masks, lens, is_training=True):
         '''
         Args:
         sents: batch_size*max_len*elmo_dim
         masks: batch_size*max_len
         lens: batch_size
         '''
+        if self.config.if_reset:  self.cat_layer.reset_binary()
         batch_size, max_len, _ = sents.size()
 
         context = self.bilstm(sents, lens)#batch_size*max_len*dim
         
-        tri_scores = self.tanh(self.feat2tri(context)) #Batch_size*sent_len*2
+        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
         #Take target embedding into consideration
         
-        
+        best_latent_seqs = []
         
         marginals = []
         select_polarities = []
@@ -95,6 +96,7 @@ class ElmoAspectSent(nn.Module):
                 print('Too short sentence')
             marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
             #Get only the positive latent factor
+            best_latent_seq = self.inter_crf.predict(tri_score)#sent_len
             select_polarity = marginal[:, 1]#sent_len, select only positive ones
 
             marginal = marginal.transpose(0, 1)  # 2 * sent_len
@@ -103,49 +105,52 @@ class ElmoAspectSent(nn.Module):
             label_scores.append(label_score)
             select_polarities.append(select_polarity)
             marginals.append(marginal)
-        
-        label_scores = torch.stack(label_scores)
-
-        return label_scores, select_polarities
-
-    def compute_predict_scores(self, sents, masks, lens):
-        '''
-        Args:
-        sents: batch_size*max_len*word_dim
-        masks: batch_size*max_len
-        lens: batch_size
-        '''
-
-        batch_size, max_len, _ = sents.size()
-        #batch_size*target_len*emb_dim
-        context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
-        tri_scores = self.feat2tri(context) #Batch_size*max_len*2
-        
-        marginals = []
-        select_polarities = []
-        label_scores = []
-        best_latent_seqs = []
-        #Sentences have different lengths, so deal with them one by one
-        for i, tri_score in enumerate(tri_scores):
-            sent_len = lens[i].cpu().item()
-            if sent_len > 1:
-                tri_score = tri_score[:sent_len, :]#sent_len, 2
-            else:
-                print('Too short sentence')
-            marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
-            best_latent_seq = self.inter_crf.predict(tri_score)#sent_len
-            #Get only the positive latent factor
-            select_polarity = marginal[:, 1]#sent_len, select only positive ones
-
-            marginal = marginal.transpose(0, 1)  # 2 * sent_len
-            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i][:sent_len]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
-            label_score = self.feat2label(sent_v).squeeze(0)#label_size
-            label_scores.append(label_score)
             best_latent_seqs.append(best_latent_seq)
         
         label_scores = torch.stack(label_scores)
+        if is_training:
+            return label_scores, select_polarities
+        else:
+            return label_scores, best_latent_seqs
 
-        return label_scores, best_latent_seqs
+#     def compute_predict_scores(self, sents, masks, lens):
+#         '''
+#         Args:
+#         sents: batch_size*max_len*word_dim
+#         masks: batch_size*max_len
+#         lens: batch_size
+#         '''
+
+#         batch_size, max_len, _ = sents.size()
+#         #batch_size*target_len*emb_dim
+#         context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
+#         tri_scores = self.feat2tri(context) #Batch_size*max_len*2
+        
+#         marginals = []
+#         select_polarities = []
+#         label_scores = []
+#         best_latent_seqs = []
+#         #Sentences have different lengths, so deal with them one by one
+#         for i, tri_score in enumerate(tri_scores):
+#             sent_len = lens[i].cpu().item()
+#             if sent_len > 1:
+#                 tri_score = tri_score[:sent_len, :]#sent_len, 2
+#             else:
+#                 print('Too short sentence')
+#             marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
+#             best_latent_seq = self.inter_crf.predict(tri_score)#sent_len
+#             #Get only the positive latent factor
+#             select_polarity = marginal[:, 1]#sent_len, select only positive ones
+
+#             marginal = marginal.transpose(0, 1)  # 2 * sent_len
+#             sent_v = torch.mm(select_polarity.unsqueeze(0), context[i][:sent_len]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+#             label_score = self.feat2label(sent_v).squeeze(0)#label_size
+#             label_scores.append(label_score)
+#             best_latent_seqs.append(best_latent_seq)
+        
+#         label_scores = torch.stack(label_scores)
+
+#         return label_scores, best_latent_seqs
 
     
     def forward(self, sents, masks, labels, lens):
@@ -160,7 +165,6 @@ class ElmoAspectSent(nn.Module):
         #scores: batch_size*label_size
         #s_prob:batch_size*sent_len
         sents = self.cat_layer(sents, masks, True)
-        sents = self.dropout(sents)#regularization
         scores, s_prob  = self.compute_scores(sents, masks, lens)
         s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
 
@@ -172,14 +176,11 @@ class ElmoAspectSent(nn.Module):
         
         cls_loss = self.loss(scores, labels)
 
-        print('Transition', pena)
-
-        print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
-        return cls_loss + norm_pen 
+        return cls_loss, norm_pen 
 
     def predict(self, sents, masks, sent_lens):
         sents = self.cat_layer(sents, masks, True)
-        scores, best_seqs = self.compute_predict_scores(sents, masks, sent_lens)
+        scores, best_seqs = self.compute_scores(sents, masks, sent_lens, False)
         _, pred_label = scores.max(1)    
         
         #Modified by Richard Sun

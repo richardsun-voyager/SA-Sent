@@ -20,6 +20,7 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
+from sklearn.metrics import confusion_matrix, f1_score
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
@@ -31,13 +32,20 @@ parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
 args = parser.parse_args()
+#tool functions
 def adjust_learning_rate(optimizer, epoch, args):
+    '''
+    Descend learning rate
+    '''
     lr = args.lr / (2 ** (epoch // args.adjust_every))
     print("Adjust lr to ", lr)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 def create_opt(parameters, config):
+    '''
+    Create optimizer
+    '''
     if config.opt == "SGD":
         optimizer = optim.SGD(parameters, lr=config.lr, weight_decay=config.l2)
     elif config.opt == "Adam":
@@ -49,21 +57,27 @@ def create_opt(parameters, config):
     return optimizer
 
 def mkdirs(dir):
+    '''
+    Create folder
+    '''
     if not os.path.exists(dir):
         os.mkdir(dir)
 
 def save_checkpoint(save_model, i_iter, args, is_best=True):
-    suffix = '{}_iter'.format(i_iter)
+    '''
+    Save the model to local disk
+    '''
+#     suffix = '{}_iter'.format(0)
     dict_model = save_model.state_dict()
-    print(args.snapshot_dir + suffix)
+#     print(args.snapshot_dir + suffix)
+    filename = args.snapshot_dir
+    save_best_checkpoint(dict_model, is_best, filename)
 
-    save_best_checkpoint(dict_model, is_best, osp.join(args.snapshot_dir, suffix))
 
-
-def train(model, dg_train, dg_valid, dg_test, optimizer, args):
+def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
     cls_loss_value = AverageMeter(10)
-    model.train()
     best_acc = 0
+    model.train()
     is_best = False
     logger.info("Start Experiment")
     loops = int(dg_train.data_len / args.batch_size)
@@ -72,59 +86,64 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
             sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_elmo_samples())
-            cls_loss = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
+            cls_loss, norm_pen = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
             cls_loss_value.update(cls_loss.item())
+
+            total_loss = cls_loss + norm_pen
             model.zero_grad()
-            cls_loss.backward()
+            total_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm, norm_type=2)
             optimizer.step()
 
-            if idx % args.print_freq:
+            if idx % args.print_freq == 0:
+                print("cls loss {0} with penalty {1}".format(cls_loss.item(), norm_pen.item()))
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
-
-
+                tb_logger.add_scalar("train_loss", idx+e_*loops, cls_loss_value.avg)
+                
         valid_acc = evaluate_test(dg_valid, model, args)
         logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
         if valid_acc > best_acc:
-            is_best = False
+            is_best = True
             best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
-            test_acc = evaluate_test(dg_test, model, args, True)
-        logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+            output_samples = False
+            if e_ % 10 == 0:
+                output_samples = True
+            test_acc = evaluate_test(dg_test, model, args, output_samples)
+            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
+        is_best = False
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):
     
-    mistake_samples = 'data/mistakes.txt'
-    if sample_out:
-        with open(mistake_samples, 'w') as f:
-            f.write('Test begins...')
     logger.info("Evaluting")
     dr_test.reset_samples()
     model.eval()
     all_counter = 0
     correct_count = 0
+    true_labels = []
+    pred_labels = []
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len, texts, targets = next(dr_test.get_elmo_samples(is_with_texts=True))
-        pred_label, _, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
-        #visualize(sent, mask, best_seq, pred_label, label)
+        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
+        pred_label, scores, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
 
+        #Compute correct predictions
         correct_count += sum(pred_label==label.cuda()).item()
         
-        ##Output wrong samples
-        indices = torch.nonzero(pred_label!=label.cuda())
-        if len(indices) > 0:
-            indices = indices.squeeze(1)
-        if sample_out:
-            with open(mistake_samples, 'a') as f:
-                for i in indices:
-                    line = texts[i] + '###' + ' '.join(targets[i]) + '###' + str(label[i]) + '###' + str(pred_label[i]) + '\n'
-                    f.write(line)
+        true_labels.extend(label.cpu().numpy())
+        pred_labels.extend(pred_label.cpu().numpy())
+        
+
+            
 
     acc = correct_count * 1.0 / dr_test.data_len
-    print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    
+    print('Confusion Matrix')
+    print(confusion_matrix(true_labels, pred_labels))
+    print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
+    print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
 
@@ -138,7 +157,9 @@ def main():
         setattr(args, k, v)
     mkdirs(osp.join("logs/"+args.exp_name))
     mkdirs(osp.join("checkpoints/"+args.exp_name))
+    global logger
     logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
+
     logger.info('{}'.format(args))
 
 
@@ -152,9 +173,10 @@ def main():
 
     global tb_logger
     tb_logger =SummaryWriter("logs/" + args.exp_name)
-    id2label = ["positive", "neutral", "negative"]
     global best_acc
     best_acc = 0
+    
+    ##Load datasets
     dr = data_reader(args)
     train_data = dr.load_data(args.train_path)
     valid_data = dr.load_data(args.valid_path)
@@ -162,6 +184,7 @@ def main():
     logger.info("Training Samples: {}".format(len(train_data)))
     logger.info("Validating Samples: {}".format(len(valid_data)))
     logger.info("Testing Samples: {}".format(len(test_data)))
+
 
     dg_train = data_generator(args, train_data)
     dg_valid = data_generator(args, valid_data, False)
@@ -175,7 +198,7 @@ def main():
 
 
     if args.training:
-        train(model, dg_train, dg_valid, dg_test, optimizer, args)
+        train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger)
     else:
         pass
 

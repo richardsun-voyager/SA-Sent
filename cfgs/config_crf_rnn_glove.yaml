@@ -18,13 +18,13 @@ common:
 
     # penlaty
     C1: 0.1
-    C2: 0.01
+    C2: 0.001
     if_reset: True
 
     opt: Adam
     dropout: 0.5
     epoch: 30
-    lr: 0.003
+    lr: 0.005
     l2: 0.001
     adjust_every: 8
     clip_norm: 3
