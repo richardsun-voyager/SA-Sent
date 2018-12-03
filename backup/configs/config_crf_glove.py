@@ -52,6 +52,10 @@ class Config():
 
         self.model_path = "data/models/"
         self.log_path = "data/logs/"
+        
+        self.is_stanford_nlp = False
+        self.elmo_config_file = '../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json'
+        self.elmo_weight_file = '../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5'
 
     
     def __repr__(self):

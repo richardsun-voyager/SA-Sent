@@ -72,28 +72,30 @@ class biLSTM(nn.Module):
         return unpacked
 
 # consits of three components
-class CRFAspectSent(nn.Module):
+class CRFTagAspectSent(nn.Module):
     def __init__(self, config):
         '''
         LSTM+Aspect
         '''
-        super(CRFAspectSent, self).__init__()
+        super(CRFTagAspectSent, self).__init__()
         self.config = config
 
         self.bilstm = biLSTM(config)
-        self.feat2tri = nn.Linear(config.l_hidden_size, 2)
+        self.feat2tri = nn.Linear(config.l_hidden_size+15, 2)
         self.target2tri = nn.Linear(config.l_hidden_size, 2)
         
         self.inter_crf = LinearCRF(config)
-        self.feat2label = nn.Linear(config.l_hidden_size, 3)
+        self.feat2label = nn.Linear(config.l_hidden_size+15, 3)
 
         self.loss = nn.NLLLoss()
         self.tanh = nn.Tanh()
         self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
+        self.tags = ['ADJ', 'ADP', 'ADV', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART',
+       'PRON', 'PROPN', 'PUNCT', 'SYM', 'VERB', 'X']
         #Modified by Richard Sun
         
-    def compute_scores(self, sents, masks, lens, is_training=True):
+    def compute_scores(self, sents, masks, lens, texts, is_training=True):
         '''
         Args:
         sents: batch_size*max_len*word_dim
@@ -104,36 +106,39 @@ class CRFAspectSent(nn.Module):
         #Context embeddings
         context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
         batch_size, max_len, hidden_dim = context.size()
-        #Target embeddings
-        #Find target indices, a list of indices
-        target_indices, target_max_len = convert_mask_index(masks)
-
-        #Find the target context embeddings, batch_size*max_len*hidden_size
-        masks = masks.type_as(context)
-        masks = masks.expand(hidden_dim, batch_size, max_len).transpose(0, 1).transpose(1, 2)
-        target_emb = masks * context
-#         #Get embeddings for each target
-#         if target_max_len<3:
-#             target_max_len = 3
-#         target_embe_squeeze = torch.zeros(batch_size, target_max_len, hidden_dim)
-#         for i, index in enumerate(target_indices):
-#             target_embe_squeeze[i][:len(index)] = target_emb[i][index]
-#         if self.config.if_gpu: target_embe_squeeze = target_embe_squeeze.cuda()
-            
-#         #Conv output: batch_size * out_dim * (max_len-k+1)
-#         target_conv = [F.relu(conv(target_embe_squeeze.transpose(1, 2))) for conv in self.convs]  # [(N,Co,L), ...]*len(Ks)
-#         aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
-#         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
-#         aspect_v = self.fc_aspect(aspect_v)#batch_size * hidden_dim
         
-        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
-        #Expand dimension for concatenation
-        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim)
-        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+        #############Add tagging a s a feature###############
+        tag_emb = torch.zeros(batch_size, max_len, len(self.tags))
+        if self.config.if_gpu: tag_emb = tag_emb.cuda()
+        tag_emb.requires_grad = False
+        
+        #Get tags of texts
+        for i, text in enumerate(texts):
+            doc = spanlp(text)
+            tags = [w.pos_ for w in doc]
+            for j, tag in enumerate(tags):
+                tag_emb[i, j, self.tags.index(tag)] = 1
+         
+        context = torch.cat([context, tag_emb], 2)
+        
+#         #################Target embeddings#################
+#         #Find target indices, a list of indices
+#         target_indices, target_max_len = convert_mask_index(masks)
 
+#         #Find the target context embeddings, batch_size*max_len*hidden_size
+#         masks = masks.type_as(context)
+#         masks = masks.expand(hidden_dim+15, batch_size, max_len).transpose(0, 1).transpose(1, 2)
+#         target_emb = masks * context
 
         
-        context = context + target_emb_avg_exp#Batch_size*max_len*2embedding
+#         target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
+#         #Expand dimension for concatenation
+#         target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim+15)
+#         target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+
+
+#         #################CRF####################
+#         context = context + target_emb_avg_exp#Batch_size*max_len*2embedding
         
         tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
@@ -173,7 +178,7 @@ class CRFAspectSent(nn.Module):
 
 
     
-    def forward(self, sents, masks, labels, lens):
+    def forward(self, sents, masks, labels, lens, texts):
         '''
         inputs are list of list for the convenince of top CRF
         Args:
@@ -186,7 +191,7 @@ class CRFAspectSent(nn.Module):
         #s_prob:batch_size*sent_len
         if self.config.if_reset:  self.cat_layer.reset_binary()
         sents = self.cat_layer(sents, masks)
-        scores, s_prob  = self.compute_scores(sents, masks, lens)
+        scores, s_prob  = self.compute_scores(sents, masks, lens, texts)
         s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
 
         pena = F.relu( self.inter_crf.transitions[1,0] - self.inter_crf.transitions[0,0]) + \
@@ -199,10 +204,10 @@ class CRFAspectSent(nn.Module):
 
         return cls_loss, norm_pen 
 
-    def predict(self, sents, masks, sent_lens):
+    def predict(self, sents, masks, sent_lens, texts):
         if self.config.if_reset:  self.cat_layer.reset_binary()
         sents = self.cat_layer(sents, masks)
-        scores, best_seqs = self.compute_scores(sents, masks, sent_lens, False)
+        scores, best_seqs = self.compute_scores(sents, masks, sent_lens, texts, False)
         _, pred_label = scores.max(1)    
         
         #Modified by Richard Sun

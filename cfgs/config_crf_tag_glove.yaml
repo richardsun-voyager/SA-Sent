@@ -1,14 +1,14 @@
 common:
-    exp_name: config_crf_rnn_glove004
-    arch: CRFAspectSent
-    batch_size: 32
+    exp_name: config_crf_tag_glove
+    arch: CRFTagAspectSent
+    batch_size: 16
 
     #Map words to lower case
     embed_num: 5120
     #For elmo the emb_size is 1024
     embed_dim: 300
     mask_dim: 30
-    if_update_embed: False
+    if_update_embed: True
 
     # lstm
     #l_hidden_size: 256
@@ -18,18 +18,18 @@ common:
 
     # penlaty
     C1: 0.1
-    C2: 0.01
+    C2: 0.00
     if_reset: True
 
     opt: Adam
     dropout: 0.5
-    epoch: 20
-    lr: 0.003
-    l2: 0.0001
+    epoch: 30
+    lr: 0.001
+    l2: 0.000
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
-    print_freq: 30
+    print_freq: 20
     finetune_embed: False
     # data processing
     if_replace: False

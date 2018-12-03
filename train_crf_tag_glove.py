@@ -22,16 +22,18 @@ import argparse
 from torch import optim
 from sklearn.metrics import confusion_matrix, f1_score
 
+#Get model names in the folder
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
 
+#Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-
-parser.add_argument('--config', default='cfgs/indo/config_indo_data.yaml')
+parser.add_argument('--config', default='cfgs/config_crf_tag_glove.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
 args = parser.parse_args()
+
 #tool functions
 def adjust_learning_rate(optimizer, epoch, args):
     '''
@@ -85,8 +87,8 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
         if e_ % args.adjust_every == 0:
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
-            sent_vecs, mask_vecs, label_list, sent_lens = next(dg_train.get_elmo_samples())
-            cls_loss, norm_pen = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
+            sent_vecs, mask_vecs, label_list, sent_lens, texts, _, _ = next(dg_train.get_ids_samples())
+            cls_loss, norm_pen = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda(), texts)
             cls_loss_value.update(cls_loss.item())
 
             total_loss = cls_loss + norm_pen
@@ -116,6 +118,9 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):
+    mistake_samples = 'data/mistakes.txt'
+    with open(mistake_samples, 'w') as f:
+        f.write('Test begins...')
     
     logger.info("Evaluting")
     dr_test.reset_samples()
@@ -126,8 +131,8 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     pred_labels = []
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
-        sent, mask, label, sent_len = next(dr_test.get_elmo_samples())
-        pred_label, scores, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
+        sent, mask, label, sent_len, texts, targets, _ = next(dr_test.get_ids_samples())
+        pred_label, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda(), texts)
 
         #Compute correct predictions
         correct_count += sum(pred_label==label.cuda()).item()
@@ -135,7 +140,15 @@ def evaluate_test(dr_test, model, args, sample_out=False):
         true_labels.extend(label.cpu().numpy())
         pred_labels.extend(pred_label.cpu().numpy())
         
-
+        ##Output wrong samples, for debugging
+        indices = torch.nonzero(pred_label!=label.cuda())
+        if len(indices) > 0:
+            indices = indices.squeeze(1)
+        if sample_out:
+            with open(mistake_samples, 'a') as f:
+                for i in indices:
+                    line = texts[i] + '###' + ' '.join(targets[i]) + '###' + str(label[i]) + '###' + str(pred_label[i]) + '\n'
+                    f.write(line)
             
 
     acc = correct_count * 1.0 / dr_test.data_len

@@ -10,6 +10,7 @@ import numpy as np
 from torch.nn import utils as nn_utils
 from util import *
 from Layer import SimpleCat
+from SRNN import SLSTM
 
 def init_ortho(module):
     for weight_ in module.parameters():
@@ -45,15 +46,17 @@ class biLSTM(nn.Module):
         return unpacked
 
 # consits of three components
-class AspectSent(nn.Module):
+class SRNNAspectSent(nn.Module):
     def __init__(self, config):
         '''
         LSTM+Aspect
         '''
-        super(AspectSent, self).__init__()
+        super(SRNNAspectSent, self).__init__()
         self.config = config
 
-        self.bilstm = biLSTM(config)
+        #self.bilstm = biLSTM(config)
+        self.slstm = SLSTM(config.embed_dim + config.mask_dim, config.l_hidden_size, gpu=config.if_gpu)
+        init_ortho(self.slstm)
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
         self.inter_crf = LinearCRF(config)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
@@ -77,7 +80,8 @@ class AspectSent(nn.Module):
             
         batch_size, max_len, _ = sents.size()
 
-        context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
+        #context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
+        context, _ = self.slstm(sents, lens)
         
         tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
@@ -120,7 +124,8 @@ class AspectSent(nn.Module):
 
         batch_size, max_len, _ = sents.size()
         #batch_size*target_len*emb_dim
-        context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
+        #context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
+        context, _ = self.slstm(sents, lens)
         tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         
         marginals = []

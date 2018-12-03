@@ -4,11 +4,11 @@ common:
     batch_size: 32
 
     #Map words to lower case
-    embed_num: 4334
+    embed_num: 5120
     #For elmo the emb_size is 1024
     embed_dim: 1024
-    mask_dim: 50
-    if_update_embed: True
+    mask_dim: 30
+    if_update_embed: False
 
     # lstm
     #l_hidden_size: 256

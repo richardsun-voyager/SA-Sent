@@ -53,10 +53,16 @@ class ElmoAspectSent(nn.Module):
         super(ElmoAspectSent, self).__init__()
         self.config = config
 
-        self.bilstm = biLSTM(config)
+        #self.bilstm = biLSTM(config)
+        self.map = nn.Linear(config.embed_dim + config.mask_dim, config.l_hidden_size)
+        
+#         self.feat2tri = nn.Linear(config.embed_dim + config.mask_dim, 2)
+#         self.feat2label = nn.Linear(config.embed_dim + config.mask_dim, 3)
+        
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
-        self.inter_crf = LinearCRF(config)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
+        
+        self.inter_crf = LinearCRF(config)
 
         self.loss = nn.NLLLoss()
         
@@ -76,7 +82,9 @@ class ElmoAspectSent(nn.Module):
         if self.config.if_reset:  self.cat_layer.reset_binary()
         batch_size, max_len, _ = sents.size()
 
-        context = self.bilstm(sents, lens)#batch_size*max_len*dim
+        #context = self.bilstm(sents, lens)#batch_size*max_len*dim
+        context = self.tanh(self.map(sents))
+        #context = sents
         
         tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
         

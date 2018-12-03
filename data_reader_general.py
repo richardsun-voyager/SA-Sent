@@ -150,7 +150,9 @@ class dataHelper():
         Split a sentence into tokens
         '''
         sent = nlp(sent_str)
-        return [item.text for item in sent]
+        words = [item.text for item in sent]
+        tags = [item.pos_ for item in sent]
+        return words
         #return tokenizer(sent_str)
         
     # namedtuple is protected!
@@ -784,17 +786,3 @@ class data_generator:
             yield sent_vecs, mask_vecs, label_list, sent_lens
 
         
-    
-
-# def read_data():
-#     TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
-#     TEST_DATA_PATH = "data/2014/Restaurants_Test_Gold.xml"
-#     dr = data_reader(config)
-#     dr.read_raw_data(TRAIN_DATA_PATH)
-#     dr.split_save_data('data/2014/training.pickle', 'data/2014/valid.pickle')
-#     dr.read_raw_data(TEST_DATA_PATH)
-#     dr.save_data('data/2014/testing.pickle')
-
-
-# if __name__ == "__main__":
-#     read_data()

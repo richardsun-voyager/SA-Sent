@@ -1,24 +1,24 @@
 common:
-    exp_name: config_crf_glove
-    arch: AspectSent
+    exp_name: config_crf_glove_indo
+    arch: ElmoAspectSent
     batch_size: 32
 
     #Map words to lower case
     embed_num: 5120
     #For elmo the emb_size is 1024
-    embed_dim: 100
-    mask_dim: 50
+    embed_dim: 256
+    mask_dim: 30
     if_update_embed: True
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 256
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
     # penlaty
     C1: 0.1
-    C2: 0.001
+    C2: 0.0001
     if_reset: True
 
     opt: Adam
@@ -54,6 +54,6 @@ common:
     log_path: data/logs/
     
     is_stanford_nlp: False
-    elmo_config_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
-    elmo_weight_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+    elmo_config_file: ../data/Indo_Elmo/options.json
+    elmo_weight_file: ../data/Indo_Elmo/weights.hdf5
     snapshot_dir: checkpoints/
