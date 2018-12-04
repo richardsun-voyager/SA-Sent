@@ -59,11 +59,9 @@ def save_checkpoint(state, is_best, filename = ''):
     if is_best:
         shutil.copyfile(osp.join(filename, 'checkpoint.pth.tar'), osp.join(filename,  'model_best.pth.tar'))
 
-
 def create_logger(name, log_file, level=logging.INFO):
-    print(level)
     l = logging.getLogger(name)
-    formatter = logging.Formatter('[line:%(lineno)4d] %(message)s')
+    formatter = logging.Formatter('[%(filename)s] %(message)s')
     fh = logging.FileHandler(log_file)
     fh.setFormatter(formatter)
     sh = logging.StreamHandler()
@@ -72,6 +70,7 @@ def create_logger(name, log_file, level=logging.INFO):
     l.addHandler(fh)
     l.addHandler(sh)
     return l
+
 # the input is 2d dim tensor
 # output 1d tensor
 def argmax_m(mat):
@@ -85,6 +84,14 @@ def argmax_m(mat):
         return ret_ind, torch.stack(ret_v)
     else:
         return ret_ind, torch.Tensor(ret_v)
+
+
+def robust_binary_crossentropy(pred, tgt):
+    inv_tgt = -tgt + 1.0
+    inv_pred = -pred + 1.0 + 1e-6
+    return -(tgt * torch.log(pred + 1e-6) + inv_tgt * torch.log(inv_pred))
+
+
 
 # Compute log sum exp in a numerically stable way for the forward algorithm
 # vec is n * n, norm in row

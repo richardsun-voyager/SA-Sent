@@ -9,7 +9,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         '''
         super(CNN_Gate_Aspect_Text, self).__init__()
         self.config = config
-        
+
         #V = config.embed_num
         D = config.embed_dim
         C = 3#config.class_num
@@ -29,7 +29,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         self.fc1 = nn.Linear(len(Ks)*Co, C)
         self.fc_aspect = nn.Linear(D, Co)
 
-    
+
     def compute_score(self, sents, targets, lens):
         '''
         inputs are list of list for the convenince of top CRF
@@ -42,7 +42,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         #Get the target embedding
         batch_size, sent_len, dim = sents.size()
         #Mask the padding embeddings
-        pack = nn_utils.rnn.pack_padded_sequence(sents, 
+        pack = nn_utils.rnn.pack_padded_sequence(sents,
                                                  lens, batch_first=True)
         unpacked, _ = nn_utils.rnn.pad_packed_sequence(pack, batch_first=True)
         #Conv input: batch_size * emb_dim * max_len
@@ -70,20 +70,20 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
     def forward(self, sent, target, label, lens):
         #Sent emb_dim + 50
-        
-        sent = F.dropout(sent, p=0.5, training=self.training)
+
+        #sent = F.dropout(sent, p=0.5, training=self.training)
         scores = self.compute_score(sent, target, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
         cls_loss = loss(scores, label)
 
         #print('Transition', pena)
-        return cls_loss 
+        return cls_loss
 
     def predict(self, sent, target, sent_len):
         #sent = self.cat_layer(sent, mask)
         scores = self.compute_score(sent, target, sent_len)
         _, pred_label = scores.max(1)#Find the max label in the 2nd dimension
-        
+
         #Modified by Richard Sun
         return pred_label

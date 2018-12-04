@@ -42,7 +42,7 @@ class dataHelper():
         # data
         self.train_data = None
         self.test_data = None
-        
+
         if config.is_stanford_nlp:
             from stanfordcorenlp import StanfordCoreNLP
             self.stanford_nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27')
@@ -75,8 +75,8 @@ class dataHelper():
             sent_Inst = SentInst(sent_id, sent_text, None, None, opinion_list)
             sentence_list.append(sent_Inst)
         return sentence_list
-        
-    
+
+
     def read_xml_data(self, file_name):
         '''
         Read XML data
@@ -140,7 +140,7 @@ class dataHelper():
         sent_str = " ".join(sent_str.split())
         return sent_str
 
-    
+
     def stanford_tokenize(self, sent_str):
         return self.stanford_nlp.word_tokenize(sent_str)
 
@@ -152,7 +152,7 @@ class dataHelper():
         sent = nlp(sent_str)
         return [item.text for item in sent]
         #return tokenizer(sent_str)
-        
+
     # namedtuple is protected!
     def process_raw_data(self, data, stanford_tokenizer=False):
         '''
@@ -181,14 +181,14 @@ class dataHelper():
                     target_tokens = self.stanford_tokenize(target)
                 else:
                     target_tokens = self.tokenize(target)
-                    
+
                 #If no targets specified, skip
                 if len(target_tokens) < 1:
                     print('No target')
                     print('Sent:', sent_tokens)
                     continue
-                
-                #Find the position of the target, i.e, 
+
+                #Find the position of the target, i.e,
                 #"I saw the black dog and a white dog stand there, what a lovely black dog, so black dog !"
                 sent_tokens = np.array(sent_tokens)
                 target_start = target_tokens[0]
@@ -200,12 +200,12 @@ class dataHelper():
                         continue
                     if target_end == sent_tokens[i+len(target_tokens)-1]:
                         mask[i:(i+len(target_tokens))] = [1]*len(target_tokens)
-                    
+
                 if len(index) < 1:
                     print('Target not in the sentence', target_tokens)
                     print('Sentence:', sent_tokens)
                     continue
-                
+
 
                 label = opi_inst.polarity
                 if label == "conflict":  continue  # ignore conflict ones
@@ -223,7 +223,7 @@ class dataHelper():
 
         return data, text_words
 
-    
+
 
     def text2ids(self, data, word2id, is_training):
         '''
@@ -241,7 +241,7 @@ class dataHelper():
             except:
                 id = word2id[self.UNK]
             return id
-        
+
         #Get the IDs for special tokens
         self.UNK_ID = w2id(self.UNK)
         self.PAD_ID = w2id(self.PAD)
@@ -282,7 +282,7 @@ class dataHelper():
         print('Tokenized Word Number:', len(word_freq_pair))
         if len(word_freq_pair) < max_size-3:
             max_size = len(word_freq_pair)
-        
+
         most_freq = word_freq_pair.most_common(max_size-3)
         words, _ = zip(*most_freq)
         words = list(words)
@@ -299,7 +299,7 @@ class dataHelper():
 
         #Save the dictionary
         dict_file = self.config.dic_path
-        dict_path = os.path.dirname(dict_file)  
+        dict_path = os.path.dirname(dict_file)
         if not os.path.exists(dict_path):
             print('Dictionary path doesnot exist')
             print('Create...')
@@ -358,7 +358,7 @@ class dataHelper():
         except:
             vec = vocab[self.UNK]
         return vec
-    
+
 
     def read(self, data_path, data_format='xml'):
         '''
@@ -377,8 +377,8 @@ class dataHelper():
         # _ = self.get_local_word_embeddings(emb, words)
         #test_data = self.process_raw_data(self.test_data)
         return data
-    
-        
+
+
 
     # shuffle and to batch size
     def to_batches(self, data, if_batch = False):
@@ -396,11 +396,11 @@ class dataHelper():
                 targets = opi_inst.target_tokens
                 target_ids = opi_inst.target_ids
                 polarity = opi_inst.class_ind
-                if tokens is None or mask is None or polarity is None: 
+                if tokens is None or mask is None or polarity is None:
                     continue
                 all_triples.append([tokens, mask, polarity, token_ids, str(text), targets, target_ids])
                 pair_couter[polarity] += 1
-                
+
         print(pair_couter)
         return all_triples
 
@@ -514,7 +514,7 @@ class data_reader:
         '''
         with open(save_path, "wb") as f:
             pickle.dump(data,f)
-        print('Saving successfully!')   
+        print('Saving successfully!')
 
     def load_data(self, load_path):
         '''
@@ -526,9 +526,10 @@ class data_reader:
                 self.data_len = len(self.data_batch)
             self.load_local_dict()
         else:
-            print('Data not exist!')  
+            print('Data not exist!')
             return None
         return  self.data_batch
+
 
     def load_local_dict(self):
         '''
@@ -554,11 +555,11 @@ class data_reader:
             with open(train_path, "wb") as f:
                 pickle.dump(training_batch,f)
             with open(valid_path, "wb") as f:
-                pickle.dump(valid_batch,f)  
+                pickle.dump(valid_batch,f)
             print('Saving successfully!')
         except:
-            print('Saving failure!')   
-    
+            print('Saving failure!')
+
 
 
 class data_generator:
@@ -568,7 +569,7 @@ class data_generator:
         Args:
         config: configuration parameters
         data_batch: data list, each contain a nametuple
-        '''    
+        '''
         self.is_training = is_training
         self.config = config
         self.index = 0
@@ -579,11 +580,11 @@ class data_generator:
         self.EOS = "<eos>"
         self.PAD = "<pad>"
         self.load_local_dict()
-        
-        options_file = config.elmo_config_file 
+
+        options_file = config.elmo_config_file
         weight_file = config.elmo_weight_file
         self.elmo = Elmo(options_file, weight_file, 2, dropout=0)
-        
+
     def remove_empty_target(self, data_batch):
         '''
         Remove items without targets
@@ -594,7 +595,7 @@ class data_generator:
             if sum(item[1])>0:
                 filtered_data.append(item)
             else:
-                print('Mask Without Target', item[0], 'Target', item[5]) 
+                print('Mask Without Target', item[0], 'Target', item[5])
         return filtered_data
 
     def load_local_dict(self):
@@ -620,7 +621,7 @@ class data_generator:
 
     def generate_balanced_sample(self, all_triples):
         '''
-        Generate balanced training data set 
+        Generate balanced training data set
         rate: list, i.e., [0.6, 0.2, 0.2]
         '''
         batch_size = self.config.batch_size
@@ -649,7 +650,7 @@ class data_generator:
         batch_size = len(sent_lens)
         character_ids = batch_to_ids(token_list)
         embeddings = self.elmo(character_ids)
-        
+
         #batch_size*word_num * 1024
         sent_vecs = embeddings['elmo_representations'][0]
         sent_vecs = sent_vecs.detach()#no gradient
@@ -660,7 +661,7 @@ class data_generator:
             mask_vecs[i, :len(mask)] = torch.LongTensor(mask)
         return sent_vecs, mask_vecs, label_list, sent_lens, texts, targets
 
-    
+
 
     def reset_samples(self):
         self.index = 0
@@ -691,7 +692,7 @@ class data_generator:
         texts = [texts[i.item()] for i in perm_idx]
         targets = [targets[i.item()] for i in perm_idx]
         target_ids = [target_ids[i.item()] for i in perm_idx]
-        return sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids 
+        return sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids
 
     def get_ids_samples(self, is_balanced=False):
         '''
@@ -705,9 +706,9 @@ class data_generator:
             tokens, mask_list, label_list, token_ids, texts, targets, target_ids = zip(*samples)
             #Sorted according to the length
             sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids,
-                                                                                                   mask_list, 
-                                                                                                   label_list, 
-                                                                                                   texts, targets, 
+                                                                                                   mask_list,
+                                                                                                   label_list,
+                                                                                                   texts, targets,
                                                                                                    target_ids)
         else:
             if self.index == self.data_len:
@@ -723,19 +724,19 @@ class data_generator:
                 #Sorting happens here
                 sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids,
                                                                                                        mask_list,
-                                                                                                       label_list, texts, 
+                                                                                                       label_list, texts,
                                                                                                        targets, target_ids)
 
             else:#Then generate testing data one by one
-                samples =  self.data_batch[self.index:] 
+                samples =  self.data_batch[self.index:]
                 if self.index == self.data_len - 1:#if only one sample left
                     samples = [samples]
                 tokens, mask_list, label_list, token_ids, texts, targets, target_ids = zip(*samples)
-                sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids, 
-                                                                                                       mask_list, 
-                                                                                                       label_list, 
-                                                                                                       texts, 
-                                                                                                       targets, 
+                sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids = self.pad_data(token_ids,
+                                                                                                       mask_list,
+                                                                                                       label_list,
+                                                                                                       texts,
+                                                                                                       targets,
                                                                                                        target_ids)
                 self.index += len(samples)
         yield sent_ids, mask_vecs, label_list, sent_lens, texts, targets, target_ids
@@ -775,7 +776,7 @@ class data_generator:
                 texts = [texts[i.item()] for i in perm_idx]
                 targets = [targets[i.item()] for i in perm_idx]
             else:#Then generate testing data one by one
-                samples =  self.data_batch[self.index] 
+                samples =  self.data_batch[self.index]
                 sent_vecs, mask_vecs, label_list, sent_lens, texts, targets = self.elmo_transform([samples])
                 self.index += 1
         if is_with_texts:
@@ -783,8 +784,8 @@ class data_generator:
         else:
             yield sent_vecs, mask_vecs, label_list, sent_lens
 
-        
-    
+
+
 
 # def read_data():
 #     TRAIN_DATA_PATH = "data/2014/Restaurants_Train_v2.xml"
