@@ -168,7 +168,7 @@ class AspectSent(nn.Module):
 
         pena = F.relu( self.inter_crf.transitions[1,0] - self.inter_crf.transitions[0,0]) + \
             F.relu(self.inter_crf.transitions[0,1] - self.inter_crf.transitions[1,1])
-        norm_pen = self.config.C1 * pena/self.config.batch_size + self.config.C2 * s_prob_norm 
+        norm_pen = self.config.C1 * pena + self.config.C2 * s_prob_norm 
 
         scores = F.log_softmax(scores, dim=1)#Batch_size*label_size
         

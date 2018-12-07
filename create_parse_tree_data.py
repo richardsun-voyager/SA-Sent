@@ -1,14 +1,18 @@
 from data_reader_general import data_reader, data_generator
 from backup.configs.config_crf_glove import config
 import re
-from stanfordcorenlp import StanfordCoreNLP
-nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27', memory='8g',timeout=3000)
-
+from parse_path import constituency_path
+# from stanfordcorenlp import StanfordCoreNLP
+# nlp = StanfordCoreNLP(r'../data/stanford-corenlp-full-2018-02-27', memory='8g',timeout=3000)
+cp = constituency_path()
 def create_tree(dataset, file):
     print('Creating file ', file)
     with open(file, 'w') as f:
         for item in dataset:
-            tree = nlp.parse(item[4])
+            text = item[4]
+            parsed_sent = self.build_parser(text)
+            positions = self.get_leave_pos(parsed_sent)
+            parse_features = self.get_parse_feature(positions)
             tree = re.sub('\n', '', tree)
             line = tree + '|||' + ' '.join(item[5]) + '|||' + str(item[2]) + '|||' + item[4] + '\n'
             f.write(line)

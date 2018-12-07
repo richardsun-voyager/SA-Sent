@@ -28,7 +28,7 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/config_srnn_crf_glove.yaml')
+parser.add_argument('--config', default='cfgs/laptop/config_crf_mem_glove_laptop.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -73,7 +73,7 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
     dict_model = save_model.state_dict()
 #     print(args.snapshot_dir + suffix)
     filename = args.snapshot_dir
-    save_best_checkpoint(dict_model, is_best, filename)
+    save_best_checkpoint(dict_model, is_best, i_iter, filename)
 
 
 def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
@@ -204,10 +204,11 @@ def main():
     dg_test = data_generator(args, test_data, False)
 
     model = models.__dict__[args.arch](args)
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = create_opt(parameters, args)
     if args.use_gpu:
         model.cuda()
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = create_opt(parameters, args)
+    
 
 
     if args.training:

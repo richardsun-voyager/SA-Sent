@@ -28,7 +28,7 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/config_crf_tag_glove.yaml')
+parser.add_argument('--config', default='cfgs/config_crf_tag_glove_res.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -87,7 +87,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
         if e_ % args.adjust_every == 0:
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
-            sent_vecs, mask_vecs, label_list, sent_lens, texts, _, _ = next(dg_train.get_ids_samples())
+            sent_vecs, mask_vecs, label_list, sent_lens, texts, _, _ = next(dg_train.get_ids_samples(True))
             cls_loss, norm_pen = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda(), texts)
             cls_loss_value.update(cls_loss.item())
 
@@ -153,6 +153,12 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
     acc = correct_count * 1.0 / dr_test.data_len
     
+    logger.info('Confusion Matrix:')
+    logger.info(confusion_matrix(true_labels, pred_labels))
+    logger.info('f1_score:{}'.format(f1_score(true_labels, pred_labels, average='macro')))
+    logger.info('Sentiment Accuray:{}'.format(acc))
+    
+    
     print('Confusion Matrix')
     print(confusion_matrix(true_labels, pred_labels))
     print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
@@ -173,7 +179,7 @@ def main():
     global logger
     logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
 
-    logger.info('{}'.format(args))
+    #logger.info('{}'.format(args))
 
 
     for key, val in vars(args).items():

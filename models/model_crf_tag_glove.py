@@ -7,7 +7,7 @@ import pdb
 import pickle
 from CRF import LinearCRF
 import torch.nn.init as init
-import pdb
+from parse_path import constituency_path
 import pickle
 import numpy as np
 from Layer import SimpleCat
@@ -15,7 +15,7 @@ from torch.nn import utils as nn_utils
 from util import *
 import en_core_web_sm
 spanlp = en_core_web_sm.load()
-
+cp = constituency_path()
 def init_ortho(module):
     for weight_ in module.parameters():
         if len(weight_.size()) == 2:
@@ -49,7 +49,7 @@ class biLSTM(nn.Module):
         super(biLSTM, self).__init__()
         self.config = config
 
-        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim+15, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -79,47 +79,68 @@ class CRFTagAspectSent(nn.Module):
         '''
         super(CRFTagAspectSent, self).__init__()
         self.config = config
+        
+        self.tags = ["''", ',', '.', 'CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR',
+       'JJS', 'LS', 'MD', 'NN', 'NNP', 'NNPS', 'NNS', 'PDT', 'POS', 'PRP',
+       'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'SYM', 'TO', 'UH', 'VB', 'VBD',
+       'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP', 'WRB', '``']
+        #Modified by Richard Sun
 
         self.bilstm = biLSTM(config)
-        self.feat2tri = nn.Linear(config.l_hidden_size+15, 2)
+        self.extra_feature_num = cp.max_depth# + len(self.tags)
+        self.feat2tri = nn.Linear(config.l_hidden_size, 2)
         self.target2tri = nn.Linear(config.l_hidden_size, 2)
         
         self.inter_crf = LinearCRF(config)
-        self.feat2label = nn.Linear(config.l_hidden_size+15, 3)
+        self.feat2label = nn.Linear(config.l_hidden_size, 3)
 
         self.loss = nn.NLLLoss()
         self.tanh = nn.Tanh()
         self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
-        self.tags = ['ADJ', 'ADP', 'ADV', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART',
-       'PRON', 'PROPN', 'PUNCT', 'SYM', 'VERB', 'X']
-        #Modified by Richard Sun
+        
         
     def compute_scores(self, sents, masks, lens, texts, is_training=True):
         '''
         Args:
-        sents: batch_size*max_len*word_dim
+        sents: batch_size*max_len*(word_dim+mask_dim)
         masks: batch_size*max_len
         lens: batch_size
         '''
+        ############Add parsing as a feature##################
+        #############Add tagging a s a feature###############
+        batch_size, max_len, _ = sents.size()
+        tag_emb = torch.zeros(batch_size, max_len, len(self.tags))
+        parse_emb = torch.zeros(batch_size, max_len, cp.max_depth)
+        
+        tag_emb.requires_grad = False
+        parse_emb.requires_grad = False
+        
+        #Get tags of texts
+        for i, text in enumerate(texts):
+#             tags = cp.get_pos_tag(text)
+#             for j, tag in enumerate(tags):
+#                 tag_emb[i, j, self.tags.index(tag)] = 1
+                
+            parsed_sent = cp.build_parser(text)
+            positions = cp.get_leave_pos(parsed_sent)
+            parse_features = cp.get_parse_feature(positions)
+            parse_emb[i,:len(positions)] = torch.FloatTensor(parse_features)
+            
+        if self.config.if_gpu: 
+            tag_emb = tag_emb.cuda()
+            parse_emb = parse_emb.cuda()
+         
+        #batch_size*max_len*(word_dim+mask_dim+15)
+        sents = torch.cat([sents, parse_emb], 2)
+        
         
         #Context embeddings
         context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
         batch_size, max_len, hidden_dim = context.size()
         
-        #############Add tagging a s a feature###############
-        tag_emb = torch.zeros(batch_size, max_len, len(self.tags))
-        if self.config.if_gpu: tag_emb = tag_emb.cuda()
-        tag_emb.requires_grad = False
         
-        #Get tags of texts
-        for i, text in enumerate(texts):
-            doc = spanlp(text)
-            tags = [w.pos_ for w in doc]
-            for j, tag in enumerate(tags):
-                tag_emb[i, j, self.tags.index(tag)] = 1
-         
-        context = torch.cat([context, tag_emb], 2)
+
         
 #         #################Target embeddings#################
 #         #Find target indices, a list of indices
@@ -163,7 +184,8 @@ class CRFTagAspectSent(nn.Module):
             #Get only the positive latent factor
             select_polarity = marginal[:, 1]#sent_len, select only positive ones
 
-            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+            sent_v = torch.mm(select_polarity.unsqueeze(0), 
+                              context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
             label_score = self.feat2label(sent_v).squeeze(0)#label_size
             label_scores.append(label_score)
             select_polarities.append(select_polarity)

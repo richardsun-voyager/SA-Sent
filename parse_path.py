@@ -105,6 +105,15 @@ class constituency_path:
         document = stfnlp.parse(text)
         parsed_sent = Tree.fromstring(document)
         return parsed_sent
+    
+    def get_pos_tag(self, text):
+        '''
+        Build a graph based on dependency parsing
+        args: text, a sentence string
+        '''
+        doc = stfnlp.pos_tag(text)
+        tags = [t for w, t in doc]
+        return tags
 
     def get_leaves(self, parsed_sent):
         '''
@@ -131,8 +140,9 @@ class constituency_path:
                 pos = pos[:self.max_depth]
             else:
                 pos += [-1] * (self.max_depth - len(pos))
+            pos = np.array(pos)
             parse_features.append(pos)
-        return parse_features
+        return np.array(parse_features)
 
 
     def compute_node_distance(self, pos1, pos2):
@@ -202,6 +212,7 @@ class constituency_path:
         #print(target_nodes)
         max_target_weight, min_target_weight, avg_target_weight = self.compute_soft_targets_weights(positions, target_nodes)
         return max_target_weight, min_target_weight, avg_target_weight
+    
 
     # def get_context_weights(self, text, target_nodes):
     #     '''Calculate the weights for the context words of a batch of contexxts'''

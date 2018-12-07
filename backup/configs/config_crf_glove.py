@@ -6,7 +6,7 @@ class Config():
         self.batch_size = 32
 
         #Map words to lower case
-        self.embed_num = 5120
+        self.embed_num = 5091#5120
         #For elmo the emb_size is 1024
         self.embed_dim = 300#1024#300
         self.mask_dim = 30
@@ -41,13 +41,21 @@ class Config():
         # self.dic_path = "data/2014/dic.pkl"
 
         #################Restaurant
+#         self.pretrained_embed_path = "../data/word_embeddings/glove.840B.300d.txt"
+#         self.embed_path = "data/restaurant_parse/vocab/local_emb.pkl"
+#         self.data_path = "data/restaurant_parse/"
+#         self.train_path = "data/restaurant_parse/train.pkl"
+#         self.valid_path = "data/restaurant_parse/valid.pkl"
+#         self.test_path = "data/restaurant_parse/Restaurants_Test_Gold.xml.pkl"
+#         self.dic_path = "data/restaurant_parse/vocab/dict.pkl"
+        
         self.pretrained_embed_path = "../data/word_embeddings/glove.840B.300d.txt"
-        self.embed_path = "data/restaurant/vocab/local_emb.pkl"
-        self.data_path = "data/restaurant/"
-        self.train_path = "data/restaurant/train.pkl"
-        self.valid_path = "data/restaurant/valid.pkl"
-        self.test_path = "data/restaurant/Restaurants_Test_Gold.xml.pkl"
-        self.dic_path = "data/restaurant/vocab/dict.pkl"
+        self.embed_path = "data/laptop/vocab/local_emb.pkl"
+        self.data_path = "data/laptop/"
+        self.train_path = "data/laptop/train.pkl"
+        self.valid_path = "data/laptop/valid.pkl"
+        self.test_path = "data/laptop/Laptops_Test_Gold.xml.pkl"
+        self.dic_path = "data/laptop/vocab/dict.pkl"
 
 
         self.model_path = "data/models/"

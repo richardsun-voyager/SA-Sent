@@ -71,11 +71,15 @@ class SimpleCat(nn.Module):
         self.config = config
         self.word_embed = nn.Embedding(config.embed_num, config.embed_dim)
         self.mask_embed = nn.Embedding(2, config.mask_dim)
-
+        
+        #positional embeddings
+        n_position = 100
+        self.position_enc = nn.Embedding(n_position, config.embed_dim, padding_idx=0)
+        self.position_enc.weight.data = self.position_encoding_init(n_position, config.embed_dim)
         self.dropout = nn.Dropout(config.dropout)
 
     # input are tensors
-    def forward(self, sent, mask, is_elmo=False):
+    def forward(self, sent, mask, is_elmo=False, is_pos=False):
         '''
         Args:
         sent: tensor, shape(batch_size, max_len, emb_dim)
@@ -94,10 +98,21 @@ class SimpleCat(nn.Module):
             sent_vec = sent # batch_siz*sent_len * dim
         else:
             sent_vec = self.word_embed(sent)# batch_siz*sent_len * dim
+        
+        sent_vec = self.dropout(sent_vec)
+        
+        #positional embeddings
+        if is_pos:
+            batch_size, max_len, _ = sent_vec.size()
+            pos = torch.arange(0, max_len)
+            if self.config.if_gpu:pos = pos.cuda()
+            pos = pos.expand(batch_size, max_len)
+            pos_vec = self.position_enc(pos)
+            sent_vec += pos_vec
             
         mask_vec = self.mask_embed(mask) # batch_size*max_len* dim
         #print(mask_vec.size())
-        sent_vec = self.dropout(sent_vec)
+        
         #Concatenation
         sent_vec = torch.cat([sent_vec, mask_vec], 2)
 
@@ -111,9 +126,25 @@ class SimpleCat(nn.Module):
             #self.word_embed.weight = nn.Parameter(torch.FloatTensor(vectors))
             self.word_embed.weight.data.copy_(torch.from_numpy(vectors))
             self.word_embed.weight.requires_grad = self.config.if_update_embed
+            self.position_enc.requires_grad = self.config.if_update_embed
     
     def reset_binary(self):
         self.mask_embed.weight.data[0].zero_()
+        
+    def position_encoding_init(self, n_position, emb_dim):
+        ''' Init the sinusoid position encoding table '''
+
+        # keep dim 0 for padding token position encoding zero vector
+        position_enc = np.array([
+            [pos / np.power(10000, 2 * (j // 2) / emb_dim) for j in range(emb_dim)]
+            if pos != 0 else np.zeros(emb_dim) for pos in range(n_position)])
+
+
+        position_enc[1:, 0::2] = np.sin(position_enc[1:, 0::2]) # dim 2i
+        position_enc[1:, 1::2] = np.cos(position_enc[1:, 1::2]) # dim 2i+1
+        pos_emb = torch.from_numpy(position_enc).type(torch.FloatTensor)
+        if self.config.if_gpu: pos_emb = pos_emb.cuda()
+        return pos_emb
 
 
     # input layer for 14

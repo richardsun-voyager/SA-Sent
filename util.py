@@ -54,10 +54,10 @@ class AverageMeter(object):
             self.avg = self.sum / self.count
 
 
-def save_checkpoint(state, is_best, filename = ''):
-    torch.save(state, osp.join(filename, 'checkpoint.pth.tar'))
-    if is_best:
-        shutil.copyfile(osp.join(filename, 'checkpoint.pth.tar'), osp.join(filename,  'model_best.pth.tar'))
+def save_checkpoint(state, is_best, e_=1, filename = ''):
+    torch.save(state, osp.join(filename, 'checkpoint.pth.tar'+str(e_)))
+#     if is_best:
+#         shutil.copyfile(osp.join(filename, 'checkpoint.pth.tar'), osp.join(filename,  'model_best.pth.tar'))
 
 
 def create_logger(name, log_file, level=logging.INFO):
