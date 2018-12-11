@@ -20,7 +20,7 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
-from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.metrics import confusion_matrix, f1_score, recall_score, precision_score
 
 #Get model names in the folder
 model_names = sorted(name for name in models.__dict__
@@ -28,7 +28,7 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/config_rnn_gcnn_glove.yaml')
+parser.add_argument('--config', default='cfgs/laptop/config_rnn_gcnn_glove_laptop.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -71,7 +71,7 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
     '''
     dict_model = save_model.state_dict()
     filename = args.snapshot_dir
-    save_best_checkpoint(dict_model, is_best, filename)
+    save_best_checkpoint(dict_model, is_best, i_iter,filename)
 
 
 def train(model, dg_train, dg_valid, dg_test, optimizer, args):
@@ -146,16 +146,17 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
     acc = correct_count * 1.0 / dr_test.data_len
     print('Confusion Matrix')
-    print(confusion_matrix(true_labels, pred_labels))
-    print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
-    #print("Test Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    logger.info(confusion_matrix(true_labels, pred_labels))
+    logger.info('Accuracy:{}'.format(acc))
+    logger.info('f1_score:{}'.format(f1_score(true_labels, pred_labels, average='macro')))
+    logger.info('precision:{}'.format(precision_score(true_labels, pred_labels, average='macro')))
+    logger.info('recall:{}'.format(recall_score(true_labels, pred_labels, average='macro')))
     return acc
 
 
 def main():
     """ Create the model and start the training."""
-    files = ['cfgs/config_rnn_gcnn_glove1.yaml', 'cfgs/config_rnn_gcnn_glove2.yaml',
-             'cfgs/config_rnn_gcnn_glove3.yaml', 'cfgs/config_rnn_gcnn_glove4.yaml']
+    files = ['cfgs/laptop/config_rnn_gcnn_glove_laptop.yaml']
     for file in files:
         print('Configure ###########')
         with open(file) as f:

@@ -5,7 +5,7 @@ import numpy as np
 
 #Set default parameters of preprocessing data
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/config_res_parse_glove.yaml')
+parser.add_argument('--config', default='cfgs/tweets/config_crf_glove_tweets.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -29,27 +29,44 @@ def train():
 #         path_list.append(path)
 
 
-    ###########Load and process laptop data###########
+#     ###########Load and process laptop data###########
     
-#     path1 = "data/laptop/Laptops_Train_V2.xml"
+#     path1 = "data/laptop/Laptop_Train_v2.xml"
 #     path2 = "data/laptop/Laptops_Test_Gold.xml"
 #     path_list = [path1, path2]
+#     #####First time, need to preprocess and save the data
+#     #######Read XML file
+
+
+    ###########Load and process lidong tweet data###########
+    
+    path1 = "data/tweets/train.csv"
+    path2 = "data/tweets/test.csv"
+    path_list = [path1, path2]
     #####First time, need to preprocess and save the data
     #######Read XML file
     
     
     #############Load and process restaurant data###########
     dr = data_reader(args)
-    path1 = "data/restaurant_parse/Restaurants_Train_v2.xml"
-    path2 = "data/restaurant_parse/Restaurants_Test_Gold.xml"
-    path_list = [path1, path2]
-    dr.read_train_test_data(path_list)
+#     path1 = "data/restaurant_parse/Restaurants_Train_v2.xml"
+#     path2 = "data/restaurant_parse/Restaurants_Test_Gold.xml"
+#     path_list = [path1, path2]
+
+
+#     ########Load Indonesian data###############
+#     path1 = "data/indo/train.xml"
+#     path2 = "data/indo/dev.xml"
+#     path3 = "data/indo/test.xml"
+#     path_list = [path1, path2, path3]
+
+    dr.read_train_test_data(path_list, 'csv')
     print('Data Preprocessed!')
     
     
     ###############Load preprocessed files, split training and dev parts if necessary#########
     dr = data_reader(args)
-    data = dr.load_data('data/restaurant_parse/Restaurants_Train_v2.xml.pkl')
+    data = dr.load_data('data/tweets/train.csv.pkl')
     dr.split_save_data(args.train_path, args.valid_path)
     print('Splitting finished')
 

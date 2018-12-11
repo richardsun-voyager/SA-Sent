@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 256
+    l_hidden_size: 400
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -23,7 +23,7 @@ common:
 
     opt: Adagrad
     dropout: 0.5
-    epoch: 20
+    epoch: 30
     lr: 0.01
     l2: 0.0001
     adjust_every: 8

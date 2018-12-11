@@ -73,7 +73,7 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
     dict_model = save_model.state_dict()
 #     print(args.snapshot_dir + suffix)
     filename = args.snapshot_dir
-    save_best_checkpoint(dict_model, is_best, filename)
+    save_best_checkpoint(dict_model, is_best, i_iter, filename)
 
 
 def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
@@ -155,14 +155,10 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     
     logger.info('Confusion Matrix:')
     logger.info(confusion_matrix(true_labels, pred_labels))
+    logger.info('Accuracy:{}'.format(acc))
     logger.info('f1_score:{}'.format(f1_score(true_labels, pred_labels, average='macro')))
-    logger.info('Sentiment Accuray:{}'.format(acc))
-    
-    
-    print('Confusion Matrix')
-    print(confusion_matrix(true_labels, pred_labels))
-    print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
-    print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    logger.info('precision:{}'.format(precision_score(true_labels, pred_labels, average='macro')))
+    logger.info('recall:{}'.format(recall_score(true_labels, pred_labels, average='macro')))
     return acc
 
 

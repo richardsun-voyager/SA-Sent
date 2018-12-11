@@ -1,14 +1,14 @@
 common:
-    exp_name: config_crf_tag_glove003
+    exp_name: config_crf_tag_glove_20181210
     arch: CRFTagAspectSent
     batch_size: 32
 
     #Map words to lower case
-    embed_num: 5091 #5120
+    embed_num: 5091
     #For elmo the emb_size is 1024
     embed_dim: 300
     mask_dim: 30
-    if_update_embed: True
+    if_update_embed: False
 
     # lstm
     #l_hidden_size: 256

@@ -127,6 +127,7 @@ class SimpleCat(nn.Module):
             self.word_embed.weight.data.copy_(torch.from_numpy(vectors))
             self.word_embed.weight.requires_grad = self.config.if_update_embed
             self.position_enc.requires_grad = self.config.if_update_embed
+            print('embeddings loaded')
     
     def reset_binary(self):
         self.mask_embed.weight.data[0].zero_()

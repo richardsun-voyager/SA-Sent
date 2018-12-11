@@ -1,5 +1,5 @@
 common:
-    exp_name: crf_elmo_exp001
+    exp_name: crf_elmo_exp_20181207
     arch: ElmoAspectSent
     batch_size: 32
 
@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 256
+    l_hidden_size: 512
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -24,7 +24,7 @@ common:
     opt: Adam
     dropout: 0.5
     epoch: 30
-    lr: 0.0005
+    lr: 0.001
     l2: 0.0
     adjust_every: 8
     clip_norm: 3

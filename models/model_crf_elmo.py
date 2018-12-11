@@ -53,14 +53,14 @@ class ElmoAspectSent(nn.Module):
         super(ElmoAspectSent, self).__init__()
         self.config = config
 
-        #self.bilstm = biLSTM(config)
-        self.map = nn.Linear(config.embed_dim + config.mask_dim, config.l_hidden_size)
-        
-#         self.feat2tri = nn.Linear(config.embed_dim + config.mask_dim, 2)
-#         self.feat2label = nn.Linear(config.embed_dim + config.mask_dim, 3)
+        self.bilstm = biLSTM(config)
+        #self.map = nn.Linear(config.embed_dim + config.mask_dim, config.l_hidden_size)
         
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
+        
+#         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
+#         self.feat2label = nn.Linear(config.l_hidden_size, 3)
         
         self.inter_crf = LinearCRF(config)
 
@@ -79,14 +79,29 @@ class ElmoAspectSent(nn.Module):
         masks: batch_size*max_len
         lens: batch_size
         '''
-        if self.config.if_reset:  self.cat_layer.reset_binary()
-        batch_size, max_len, _ = sents.size()
+        context = self.bilstm(sents, lens)#batch_size*max_len*dim
 
-        #context = self.bilstm(sents, lens)#batch_size*max_len*dim
-        context = self.tanh(self.map(sents))
-        #context = sents
+        batch_size, max_len, hidden_dim = context.size()
         
-        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        #Target embeddings
+        #Find target indices, a list of indices
+        target_indices, target_max_len = convert_mask_index(masks)
+
+        #Find the target context embeddings, batch_size*max_len*hidden_size
+        masks = masks.type_as(context)
+        masks = masks.expand(hidden_dim, batch_size, max_len).transpose(0, 1).transpose(1, 2)
+        target_emb = masks * context
+
+        
+        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
+        #target_emb_avg = torch.max(target_emb, 1)[0]#Batch_size*embedding
+        #Expand dimension for concatenation
+        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim)
+        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+        
+        context2 = context + target_emb_avg_exp
+        
+        tri_scores = self.feat2tri(context2) #Batch_size*sent_len*2
         
         #Take target embedding into consideration
         
@@ -109,6 +124,10 @@ class ElmoAspectSent(nn.Module):
 
             marginal = marginal.transpose(0, 1)  # 2 * sent_len
             sent_v = torch.mm(select_polarity.unsqueeze(0), context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+            
+            #is this necessary
+            sent_v = self.dropout(sent_v)
+            ###########
             label_score = self.feat2label(sent_v).squeeze(0)#label_size
             label_scores.append(label_score)
             select_polarities.append(select_polarity)
@@ -134,6 +153,7 @@ class ElmoAspectSent(nn.Module):
 
         #scores: batch_size*label_size
         #s_prob:batch_size*sent_len
+        if self.config.if_reset:  self.cat_layer.reset_binary()
         sents = self.cat_layer(sents, masks, True)
         scores, s_prob  = self.compute_scores(sents, masks, lens)
         s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
@@ -149,10 +169,28 @@ class ElmoAspectSent(nn.Module):
         return cls_loss, norm_pen 
 
     def predict(self, sents, masks, sent_lens):
+        if self.config.if_reset:  self.cat_layer.reset_binary()
         sents = self.cat_layer(sents, masks, True)
         scores, best_seqs = self.compute_scores(sents, masks, sent_lens, False)
         _, pred_label = scores.max(1)    
         
         #Modified by Richard Sun
         return pred_label, scores, best_seqs
+    
+def convert_mask_index(masks):
+    '''
+    Find the indice of none zeros values in masks, namely the target indice
+    '''
+    target_indice = []
+    max_len = 0
+    try:
+        for mask in masks:
+            indice = torch.nonzero(mask == 1).squeeze(1).cpu().numpy()
+            if max_len < len(indice):
+                max_len = len(indice)
+            target_indice.append(indice)
+    except:
+        print('Mask Data Error')
+        print(mask)
+    return target_indice, max_len
     

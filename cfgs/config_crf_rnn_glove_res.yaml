@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_rnn_glove004
+    exp_name: config_crf_rnn_glove_20181209
     arch: CRFAspectSent
     batch_size: 32
 

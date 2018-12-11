@@ -49,7 +49,7 @@ class biLSTM(nn.Module):
         super(biLSTM, self).__init__()
         self.config = config
 
-        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim+15, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -88,8 +88,8 @@ class CRFTagAspectSent(nn.Module):
 
         self.bilstm = biLSTM(config)
         self.extra_feature_num = cp.max_depth# + len(self.tags)
-        self.feat2tri = nn.Linear(config.l_hidden_size, 2)
-        self.target2tri = nn.Linear(config.l_hidden_size, 2)
+        self.feat2tri = nn.Linear(config.l_hidden_size+15, 2)
+        self.target2tri = nn.Linear(config.l_hidden_size+15, 2)
         
         self.inter_crf = LinearCRF(config)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
@@ -131,37 +131,39 @@ class CRFTagAspectSent(nn.Module):
             tag_emb = tag_emb.cuda()
             parse_emb = parse_emb.cuda()
          
-        #batch_size*max_len*(word_dim+mask_dim+15)
-        sents = torch.cat([sents, parse_emb], 2)
+        
         
         
         #Context embeddings
         context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
         batch_size, max_len, hidden_dim = context.size()
         
+        #batch_size*max_len*(hidden_dim+15)
+        context = torch.cat([context, parse_emb], 2)
+        
         
 
         
-#         #################Target embeddings#################
-#         #Find target indices, a list of indices
-#         target_indices, target_max_len = convert_mask_index(masks)
+        #################Target embeddings#################
+        #Find target indices, a list of indices
+        target_indices, target_max_len = convert_mask_index(masks)
 
-#         #Find the target context embeddings, batch_size*max_len*hidden_size
-#         masks = masks.type_as(context)
-#         masks = masks.expand(hidden_dim+15, batch_size, max_len).transpose(0, 1).transpose(1, 2)
-#         target_emb = masks * context
+        #Find the target context embeddings, batch_size*max_len*hidden_size
+        masks = masks.type_as(context)
+        masks = masks.expand(hidden_dim+15, batch_size, max_len).transpose(0, 1).transpose(1, 2)
+        target_emb = masks * context
 
         
-#         target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
-#         #Expand dimension for concatenation
-#         target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim+15)
-#         target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
+        #Expand dimension for concatenation
+        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim+15)
+        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
 
 
 #         #################CRF####################
 #         context = context + target_emb_avg_exp#Batch_size*max_len*2embedding
         
-        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        tri_scores = self.feat2tri(context)+self.target2tri(target_emb_avg_exp) #Batch_size*sent_len*2
         
         
         #Take target embedding into consideration
@@ -185,7 +187,7 @@ class CRFTagAspectSent(nn.Module):
             select_polarity = marginal[:, 1]#sent_len, select only positive ones
 
             sent_v = torch.mm(select_polarity.unsqueeze(0), 
-                              context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+                              context[i, :sent_len, :-15]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
             label_score = self.feat2label(sent_v).squeeze(0)#label_size
             label_scores.append(label_score)
             select_polarities.append(select_polarity)

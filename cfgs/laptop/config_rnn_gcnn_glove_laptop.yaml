@@ -1,5 +1,5 @@
 common:
-    exp_name: config_gcnn_glove_laptop
+    exp_name: config_gcnn_glove_laptop_20181208
     arch: RNNCNNSent
     batch_size: 32
 
@@ -7,8 +7,8 @@ common:
     embed_num: 4063
     #For elmo the emb_size is 1024
     embed_dim: 300
-    mask_dim: 50
-    if_update_embed: True
+    mask_dim: 30
+    if_update_embed: False
 
     # lstm
     #l_hidden_size: 256
@@ -17,15 +17,15 @@ common:
     l_dropout: 0.1
 
     # penlaty
-    C1: 0.1
+    C1: 0.2
     C2: 0.05
     if_reset: True
 
     opt: Adagrad
     dropout: 0.5
     epoch: 50
-    lr: 0.005
-    l2: 0.001
+    lr: 0.001
+    l2: 0.0001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6

@@ -20,7 +20,7 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import argparse
 from torch import optim
-from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.metrics import confusion_matrix, f1_score, recall_score, precision_score
 
 #Get model names in the folder
 model_names = sorted(name for name in models.__dict__
@@ -28,7 +28,8 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/laptop/config_crf_mem_glove_laptop.yaml')
+parser.add_argument('--config', 
+                    default='cfgs/tweets/config_crf_glove_tweets.yaml')#'config_crf_rnn_glove_res.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -153,10 +154,18 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
     acc = correct_count * 1.0 / dr_test.data_len
     
-    print('Confusion Matrix')
-    print(confusion_matrix(true_labels, pred_labels))
-    print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
-    print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
+    logger.info('Confusion Matrix:')
+    logger.info(confusion_matrix(true_labels, pred_labels))
+    logger.info('Accuracy:{}'.format(acc))
+    logger.info('f1_score:{}'.format(f1_score(true_labels, pred_labels, average='macro')))
+    logger.info('precision:{}'.format(precision_score(true_labels, pred_labels, average='macro')))
+    logger.info('recall:{}'.format(recall_score(true_labels, pred_labels, average='macro')))
+    
+    
+#     print('Confusion Matrix')
+#     print(confusion_matrix(true_labels, pred_labels))
+#     print('f1_score:', f1_score(true_labels, pred_labels, average='macro'))
+#     print("Sentiment Accuray {0}, {1}:{2}".format(acc, correct_count, all_counter))
     return acc
 
 
@@ -204,6 +213,10 @@ def main():
     dg_test = data_generator(args, test_data, False)
 
     model = models.__dict__[args.arch](args)
+    
+    path = None#'checkpoints/config_crf_glove_tweets_20181206_3/checkpoint.pth.tar9'
+    if path:
+        model.load_state_dict(torch.load(path))
     if args.use_gpu:
         model.cuda()
     parameters = filter(lambda p: p.requires_grad, model.parameters())

@@ -133,9 +133,9 @@ class CRFAspectSent(nn.Module):
 
 
         
-        context = context + target_emb_avg_exp#Batch_size*max_len*2embedding
+        #context = context + target_emb_avg_exp#Batch_size*max_len*2embedding
         
-        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        tri_scores = self.feat2tri(context) + self.target2tri(target_emb_avg_exp)#Batch_size*sent_len*2
         
         
         #Take target embedding into consideration
