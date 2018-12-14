@@ -1,11 +1,12 @@
-from data_reader_general import *
+from data_reader_mask_target import *
+#from data_reader_general import *
 import argparse
 import yaml
 import numpy as np
 
 #Set default parameters of preprocessing data
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/tweets/config_crf_glove_tweets.yaml')
+parser.add_argument('--config', default='cfgs/tweets_mask_target/config_crf_glove_tweets_mask_target.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -40,8 +41,8 @@ def train():
 
     ###########Load and process lidong tweet data###########
     
-    path1 = "data/tweets/train.csv"
-    path2 = "data/tweets/test.csv"
+    path1 = "data/tweets_mask_target/train.csv"
+    path2 = "data/tweets_mask_target/test.csv"
     path_list = [path1, path2]
     #####First time, need to preprocess and save the data
     #######Read XML file

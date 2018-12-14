@@ -27,7 +27,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='TSA')
 
-parser.add_argument('--config', default='cfgs/indo/config_crf_elmo_indo.yaml')
+parser.add_argument('--config', default='cfgs/tweets/config_crf_elmo_tweets.yaml')#cfgs/indo/config_crf_elmo_indo.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -193,10 +193,11 @@ def main():
     dg_test = data_generator(args, test_data, False)
 
     model = models.__dict__[args.arch](args)
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = create_opt(parameters, args)
     if args.use_gpu:
         model.cuda()
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = create_opt(parameters, args)
+    
 
 
     if args.training:

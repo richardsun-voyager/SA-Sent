@@ -125,7 +125,7 @@ class CRF_Mem_AspectSent(nn.Module):
         #context = context + target_emb_avg_exp#Batch_size*max_len*2embedding
         #concatenation model
         target_vec = target_emb_avg_exp
-        for _ in range(1):
+        for _ in range(3):
             context_cat = torch.cat([context, target_vec], 2)
             tri_scores = self.feat2tri(context_cat) #Batch_size*sent_len*2
 

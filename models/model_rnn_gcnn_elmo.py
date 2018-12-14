@@ -5,6 +5,7 @@ from torch.nn import utils as nn_utils
 from util import *
 from torch.nn import utils as nn_utils
 import torch.nn.init as init
+from Layer import SimpleCat
 def init_ortho(module):
     for weight_ in module.parameters():
         if len(weight_.size()) == 2:
@@ -15,7 +16,7 @@ class MLSTM(nn.Module):
         super(MLSTM, self).__init__()
         self.config = config
         #The concatenated word embedding and target embedding as input
-        self.rnn = nn.LSTM(config.embed_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.LSTM(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -41,19 +42,19 @@ class MLSTM(nn.Module):
         return unpacked
 
 
-class CNN_Gate_Aspect_Text(nn.Module):
+class ElmoGCNNTSA(nn.Module):
     def __init__(self, config):
         '''
         In this model, only context words are processed by gated CNN, target is average word embeddings
         '''
-        super(CNN_Gate_Aspect_Text, self).__init__()
+        super(ElmoGCNNTSA, self).__init__()
         self.config = config
         
         #V = config.embed_num
-        D = config.embed_dim
+        D = config.l_hidden_size
         C = 3#config.class_num
 
-        Co = 128#kernel numbers
+        Co = 256#kernel numbers
         Ks = [2, 3, 4]#kernel filter size
 
         self.lstm = MLSTM(config)
@@ -65,6 +66,8 @@ class CNN_Gate_Aspect_Text(nn.Module):
         self.fc1 = nn.Linear(len(Ks)*Co, C)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
+        
+        self.cat_layer = SimpleCat(config)
 
 
     
@@ -77,7 +80,7 @@ class CNN_Gate_Aspect_Text(nn.Module):
         label: a list labels
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
-        context = sents
+        context = self.lstm(sents, lens)
 
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
@@ -126,12 +129,8 @@ class CNN_Gate_Aspect_Text(nn.Module):
 
     def forward(self, sents, masks, labels, lens):
         #Sent emb_dim + 50
-        ##For restaurant
-        #sent = F.dropout(sents, p=0.2, training=self.training)
-        
-        #For laptop
-        sent = F.dropout(sents, p=0.5, training=self.training)
-        
+        if self.config.if_reset:  self.cat_layer.reset_binary()
+        sents = self.cat_layer(sents, masks, True)
         scores = self.compute_score(sents, masks, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
@@ -141,7 +140,8 @@ class CNN_Gate_Aspect_Text(nn.Module):
         return cls_loss 
 
     def predict(self, sents, masks, sent_lens):
-        #sent = self.cat_layer(sent, mask)
+        if self.config.if_reset:  self.cat_layer.reset_binary()
+        sents = self.cat_layer(sents, masks, True)
         scores = self.compute_score(sents, masks, sent_lens)
         _, pred_labels = scores.max(1)#Find the max label in the 2nd dimension
         

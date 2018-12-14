@@ -28,7 +28,7 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/laptop/config_rnn_gcnn_glove_laptop.yaml')
+parser.add_argument('--config', default='cfgs/tweets/config_gcnn_glove_tweets.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -156,7 +156,7 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
 def main():
     """ Create the model and start the training."""
-    files = ['cfgs/laptop/config_rnn_gcnn_glove_laptop.yaml']
+    files = ['cfgs/tweets/config_gcnn_glove_tweets.yaml']
     for file in files:
         print('Configure ###########')
         with open(file) as f:
