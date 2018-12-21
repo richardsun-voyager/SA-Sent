@@ -1,5 +1,5 @@
 common:
-    exp_name: config_gcnn_glove_tweets_20181213
+    exp_name: config_gcnn_glove_tweets_20181218
     arch: RNNCNNSent
     batch_size: 32
 
@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 300
+    l_hidden_size: 256
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -20,12 +20,13 @@ common:
     C1: 0.1
     C2: 0.02
     if_reset: True
+    #True
 
     opt: Adagrad
     dropout: 0.5
     epoch: 30
     lr: 0.01
-    l2: 0.000
+    l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
@@ -44,9 +45,9 @@ common:
     pretrained_embed_path: ../data/glove.840B.300d.txt
     embed_path: data/tweets/vocab/local_emb.pkl
     data_path: data/tweets/
-    train_path: data/tweets/train.pkl
-    valid_path: data/tweets/valid.pkl
-    test_path: data/tweets/test.csv.pkl
+    train_path: data/tweets/new_train.pkl
+    valid_path: data/tweets/new_dev.pkl
+    test_path: data/tweets/new_test.pkl
     dic_path: data/tweets/vocab/dict.pkl
 
 

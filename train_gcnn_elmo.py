@@ -77,6 +77,7 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
 def train(model, dg_train, dg_valid, dg_test, optimizer, args):
     cls_loss_value = AverageMeter(10)
     best_acc = 0
+    best_f1 = 0
     model.train()
     is_best = False
     logger.info("Start Experiment")
@@ -97,7 +98,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
 
 
-        valid_acc = evaluate_test(dg_valid, model, args)
+        valid_acc, valid_f1 = evaluate_test(dg_valid, model, args)
         logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
         if valid_acc > best_acc:
             is_best = False
@@ -106,7 +107,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             output_samples = False
             if e_ % 10 == 0:
                 output_samples = True
-            test_acc = evaluate_test(dg_test, model, args, output_samples)
+            test_acc, test_f1 = evaluate_test(dg_test, model, args, output_samples)
             logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
 
@@ -137,13 +138,14 @@ def evaluate_test(dr_test, model, args, sample_out=False):
             
 
     acc = correct_count * 1.0 / dr_test.data_len
+    f1 = f1_score(true_labels, pred_labels, average='macro')
     print('Confusion Matrix')
     logger.info(confusion_matrix(true_labels, pred_labels))
     logger.info('Accuracy:{}'.format(acc))
-    logger.info('f1_score:{}'.format(f1_score(true_labels, pred_labels, average='macro')))
+    logger.info('f1_score:{}'.format(f1))
     logger.info('precision:{}'.format(precision_score(true_labels, pred_labels, average='macro')))
     logger.info('recall:{}'.format(recall_score(true_labels, pred_labels, average='macro')))
-    return acc
+    return acc, f1
 
 
 def main():

@@ -8,3 +8,4 @@ from .model_srnn_crf_glove import *
 from .model_crf_tag_glove import *
 from .model_crf_target_glove import *
 from .model_crf_mem_glove import *
+from .model_dnm_glove import *

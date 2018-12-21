@@ -31,6 +31,7 @@ parser = argparse.ArgumentParser(description='TSA')
 parser.add_argument('--config', default='cfgs/tweets/config_gcnn_glove_tweets.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
+files = ['cfgs/tweets_mask_target/config_gcnn_glove_tweets_mask_target.yaml']
 
 args = parser.parse_args()
 
@@ -77,6 +78,7 @@ def save_checkpoint(save_model, i_iter, args, is_best=True):
 def train(model, dg_train, dg_valid, dg_test, optimizer, args):
     cls_loss_value = AverageMeter(10)
     best_acc = 0
+    best_f1 = 0
     model.train()
     is_best = False
     logger.info("Start Experiment")
@@ -85,7 +87,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
         if e_ % args.adjust_every == 0:
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
-            sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples(True))
+            sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples())
             cls_loss = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
             cls_loss_value.update(cls_loss.item())
             model.zero_grad()
@@ -96,8 +98,8 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             if idx % args.print_freq == 0:
                 logger.info("i_iter {}/{} cls_loss: {:3f}".format(idx, loops, cls_loss_value.avg))
 
-
-        valid_acc = evaluate_test(dg_valid, model, args)
+        #train_acc, train_f1 = evaluate_test(dg_train, model, args)
+        valid_acc, valid_f1 = evaluate_test(dg_valid, model, args)
         logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
         if valid_acc > best_acc:
             is_best = False
@@ -106,8 +108,9 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
             output_samples = False
             if e_ % 10 == 0:
                 output_samples = True
-            test_acc = evaluate_test(dg_test, model, args, output_samples)
+            test_acc, test_f1 = evaluate_test(dg_test, model, args, output_samples)
             logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+        print('Final test accuracy:', test_acc)
         model.train()
 
 
@@ -145,18 +148,20 @@ def evaluate_test(dr_test, model, args, sample_out=False):
             
 
     acc = correct_count * 1.0 / dr_test.data_len
+    f1 = f1_score(true_labels, pred_labels, average='macro')
     print('Confusion Matrix')
     logger.info(confusion_matrix(true_labels, pred_labels))
     logger.info('Accuracy:{}'.format(acc))
-    logger.info('f1_score:{}'.format(f1_score(true_labels, pred_labels, average='macro')))
+    logger.info('f1_score:{}'.format(f1))
     logger.info('precision:{}'.format(precision_score(true_labels, pred_labels, average='macro')))
     logger.info('recall:{}'.format(recall_score(true_labels, pred_labels, average='macro')))
-    return acc
+    return acc, f1
 
 
 def main():
     """ Create the model and start the training."""
-    files = ['cfgs/tweets/config_gcnn_glove_tweets.yaml']
+    #files = ['cfgs/tweets/config_gcnn_glove_tweets.yaml']
+    
     for file in files:
         print('Configure ###########')
         with open(file) as f:

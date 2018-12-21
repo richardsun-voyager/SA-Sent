@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_glove_20181206
+    exp_name: config_crf_glove_20181218
     arch: AspectSent
     batch_size: 32
 

@@ -1,18 +1,18 @@
 common:
-    exp_name: config_gcnn_elmo_tweets_20181216
-    arch: ElmoGCNNTSA
+    exp_name: config_crf_cnn_glove_tweets_20181220
+    arch: AspectSent
     batch_size: 32
 
     #Map words to lower case
     embed_num: 15906
     #For elmo the emb_size is 1024
-    embed_dim: 1024
-    mask_dim: 60
+    embed_dim: 300
+    mask_dim: 30
     if_update_embed: False
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 300
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -24,8 +24,8 @@ common:
     opt: Adagrad
     dropout: 0.5
     epoch: 30
-    lr: 0.03
-    l2: 0.008
+    lr: 0.01
+    l2: 0.000
     adjust_every: 8
     clip_norm: 3
     k_fold: 6

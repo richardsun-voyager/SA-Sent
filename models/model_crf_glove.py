@@ -9,8 +9,8 @@ import torch.nn.init as init
 import numpy as np
 from torch.nn import utils as nn_utils
 from util import *
-from Layer import SimpleCat
-
+from Layer import SimpleCat, SimpleCatTgtMasked
+from multiprocessing import Pool
 def init_ortho(module):
     for weight_ in module.parameters():
         if len(weight_.size()) == 2:
@@ -57,6 +57,10 @@ class AspectSent(nn.Module):
         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
         self.inter_crf = LinearCRF(config)
         self.feat2label = nn.Linear(config.l_hidden_size, 3)
+        
+        D = config.l_hidden_size
+        Co = D
+        self.conv = nn.Conv1d(D, Co, 3, padding=1)
 
         self.loss = nn.NLLLoss()
         
@@ -65,6 +69,156 @@ class AspectSent(nn.Module):
         #Modified by Richard Sun
         self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
+
+    
+    def compute_scores(self, sents, masks, lens, is_training=True):
+        '''
+        Args:
+        sents: batch_size*max_len*word_dim
+        masks: batch_size*max_len
+        lens: batch_size
+        '''
+            
+        batch_size, max_len, _ = sents.size()
+
+        context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
+        
+        context = F.relu(self.conv(context.transpose(1, 2)))
+        context = context.transpose(1, 2)
+        
+        tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        
+        #Take target embedding into consideration
+        
+        
+        
+        marginals = []
+        select_polarities = []
+        label_scores = []
+        best_latent_seqs = []
+        #Sentences have different lengths, so deal with them one by one
+        for i, tri_score in enumerate(tri_scores):
+            sent_len = lens[i].cpu().item()
+            if sent_len > 1:
+                tri_score = tri_score[:sent_len, :]#sent_len, 2
+            else:
+                print('Too short sentence')
+            marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
+            #Get only the positive latent factor
+            select_polarity = marginal[:, 1]#sent_len, select only positive ones
+            best_latent_seq = self.inter_crf.predict(tri_score)#sent_len
+            marginal = marginal.transpose(0, 1)  # 2 * sent_len
+            sent_v = torch.mm(select_polarity.unsqueeze(0), context[i, :sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+            label_score = self.feat2label(sent_v).squeeze(0)#label_size
+            label_scores.append(label_score)
+            select_polarities.append(select_polarity)
+            best_latent_seqs.append(best_latent_seq)
+            marginals.append(marginal)
+        
+        label_scores = torch.stack(label_scores)
+        if is_training:
+            return label_scores, select_polarities
+        else:
+            return label_scores, best_latent_seqs
+
+#     def compute_predict_scores(self, sents, masks, lens):
+#         '''
+#         Args:
+#         sents: batch_size*max_len*word_dim
+#         masks: batch_size*max_len
+#         lens: batch_size
+#         '''
+
+#         batch_size, max_len, _ = sents.size()
+#         #batch_size*target_len*emb_dim
+#         context = self.bilstm(sents, lens)#Batch_size*max_len*hidden_dim
+#         tri_scores = self.feat2tri(context) #Batch_size*sent_len*2
+        
+#         marginals = []
+#         select_polarities = []
+#         label_scores = []
+#         best_latent_seqs = []
+#         #Sentences have different lengths, so deal with them one by one
+#         for i, tri_score in enumerate(tri_scores):
+#             sent_len = lens[i].cpu().item()
+#             if sent_len > 1:
+#                 tri_score = tri_score[:sent_len, :]#sent_len, 2
+#             else:
+#                 print('Too short sentence')
+#             marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
+#             best_latent_seq = self.inter_crf.predict(tri_score)#sent_len
+#             #Get only the positive latent factor
+#             select_polarity = marginal[:, 1]#sent_len, select only positive ones
+
+#             marginal = marginal.transpose(0, 1)  # 2 * sent_len
+#             sent_v = torch.mm(select_polarity.unsqueeze(0), context[i][:sent_len]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+#             label_score = self.feat2label(sent_v).squeeze(0)#label_size
+#             label_scores.append(label_score)
+#             best_latent_seqs.append(best_latent_seq)
+        
+#         label_scores = torch.stack(label_scores)
+
+#         return label_scores, best_latent_seqs
+
+    
+    def forward(self, sents, masks, labels, lens):
+        '''
+        inputs are list of list for the convenince of top CRF
+        Args:
+        sent: a list of sentences， batch_size*len*emb_dim
+        mask: a list of mask for each sentence, batch_size*len
+        label: a list labels
+        '''
+
+        #scores: batch_size*label_size
+        #s_prob:batch_size*sent_len
+        if self.config.if_reset:  self.cat_layer.reset_binary()
+        sents = self.cat_layer(sents, masks)
+        scores, s_prob  = self.compute_scores(sents, masks, lens)
+        s_prob_norm = torch.stack([s.norm(1) for s in s_prob]).mean()
+
+        pena = F.relu( self.inter_crf.transitions[1,0] - self.inter_crf.transitions[0,0]) + \
+            F.relu(self.inter_crf.transitions[0,1] - self.inter_crf.transitions[1,1])
+        norm_pen = self.config.C1 * pena + self.config.C2 * s_prob_norm 
+
+        scores = F.log_softmax(scores, dim=1)#Batch_size*label_size
+        
+        cls_loss = self.loss(scores, labels)
+
+
+        return cls_loss, norm_pen 
+
+    def predict(self, sents, masks, sent_lens):
+        if self.config.if_reset:  self.cat_layer.reset_binary()
+        sents = self.cat_layer(sents, masks)
+        scores, best_seqs = self.compute_scores(sents, masks, sent_lens, False)
+        _, pred_label = scores.max(1)    
+        
+        #Modified by Richard Sun
+        return pred_label, best_seqs
+    
+class TgtMskSASent(nn.Module):
+    def __init__(self, config):
+        '''
+        LSTM+Aspect
+        '''
+        super(TgtMskSASent, self).__init__()
+        self.config = config
+
+        self.bilstm = biLSTM(config)
+        self.feat2tri = nn.Linear(config.l_hidden_size, 2)
+        self.inter_crf = LinearCRF(config)
+        self.feat2label = nn.Linear(config.l_hidden_size, 3)
+
+        self.loss = nn.NLLLoss()
+        
+        self.tanh = nn.Tanh()
+        self.dropout = nn.Dropout(0.3)
+        #Modified by Richard Sun
+        self.cat_layer = SimpleCatTgtMasked(config)
+        self.cat_layer.load_vector()
+        
+        self.pool = Pool(processes=5) 
 
     
     def compute_scores(self, sents, masks, lens):
@@ -88,6 +242,9 @@ class AspectSent(nn.Module):
         marginals = []
         select_polarities = []
         label_scores = []
+        
+        #params = zip(tri_scores, context, lens)
+        #results = self.pool.map(self.crf_score, params)
         #Sentences have different lengths, so deal with them one by one
         for i, tri_score in enumerate(tri_scores):
             sent_len = lens[i].cpu().item()
@@ -104,11 +261,29 @@ class AspectSent(nn.Module):
             label_score = self.feat2label(sent_v).squeeze(0)#label_size
             label_scores.append(label_score)
             select_polarities.append(select_polarity)
-            marginals.append(marginal)
+            #marginals.append(marginal)
         
+        #label_scores, select_polarities = zip(*result)
         label_scores = torch.stack(label_scores)
 
         return label_scores, select_polarities
+    
+    def crf_score(self, params):
+        tri_score, context, sent_len = params
+        if sent_len > 1:
+            tri_score = tri_score[:sent_len, :]#sent_len, 2
+        else:
+            print('Too short sentence')
+        marginal = self.inter_crf(tri_score)#sent_len, latent_label_size
+        #Get only the positive latent factor
+        select_polarity = marginal[:, 1]#sent_len, select only positive ones
+
+        marginal = marginal.transpose(0, 1)  # 2 * sent_len
+        sent_v = torch.mm(select_polarity.unsqueeze(0), context[:sent_len, :]) # 1*sen_len, sen_len*hidden_dim=1*hidden_dim
+        label_score = self.feat2label(sent_v).squeeze(0)#label_size
+        return label_score, select_polarity
+            
+         
 
     def compute_predict_scores(self, sents, masks, lens):
         '''

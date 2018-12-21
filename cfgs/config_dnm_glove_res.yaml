@@ -1,31 +1,31 @@
 common:
-    exp_name: config_gcnn_elmo_tweets_20181216
-    arch: ElmoGCNNTSA
+    exp_name: config_crf_glove_20181206
+    arch: DynamicMemTSA
     batch_size: 32
 
     #Map words to lower case
-    embed_num: 15906
+    embed_num: 5120
     #For elmo the emb_size is 1024
-    embed_dim: 1024
-    mask_dim: 60
+    embed_dim: 300
+    mask_dim: 30
     if_update_embed: False
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 300
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
     # penlaty
-    C1: 0.1
-    C2: 0.02
+    C1: 0.0
+    C2: 0.00
     if_reset: True
 
-    opt: Adagrad
+    opt: Adam
     dropout: 0.5
     epoch: 30
-    lr: 0.03
-    l2: 0.008
+    lr: 0.001
+    l2: 0.000
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
@@ -42,12 +42,12 @@ common:
 
     #################Restaurant
     pretrained_embed_path: ../data/glove.840B.300d.txt
-    embed_path: data/tweets/vocab/local_emb.pkl
-    data_path: data/tweets/
-    train_path: data/tweets/train.pkl
-    valid_path: data/tweets/valid.pkl
-    test_path: data/tweets/test.csv.pkl
-    dic_path: data/tweets/vocab/dict.pkl
+    embed_path: data/restaurant/vocab/local_emb.pkl
+    data_path: data/restaurant/
+    train_path: data/restaurant/train.pkl
+    valid_path: data/restaurant/valid.pkl
+    test_path: data/restaurant/Restaurants_Test_Gold.xml.pkl
+    dic_path: data/restaurant/vocab/dict.pkl
 
 
     model_path: data/models/

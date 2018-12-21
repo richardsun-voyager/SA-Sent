@@ -6,7 +6,7 @@ from torch.autograd import Variable
 import pickle
 from CRF import LinearCRF
 import torch.nn.init as init
-from Layer import SimpleCat
+from Layer import SimpleCat, SimpleCatTgtMasked
 import numpy as np
 from torch.nn import utils as nn_utils
 from util import *
@@ -56,11 +56,11 @@ class ElmoAspectSent(nn.Module):
         self.bilstm = biLSTM(config)
         #self.map = nn.Linear(config.embed_dim + config.mask_dim, config.l_hidden_size)
         
-        self.feat2tri = nn.Linear(config.l_hidden_size, 2)
-        self.feat2label = nn.Linear(config.l_hidden_size, 3)
-        
 #         self.feat2tri = nn.Linear(config.l_hidden_size, 2)
 #         self.feat2label = nn.Linear(config.l_hidden_size, 3)
+        
+        self.feat2tri = nn.Linear(config.embed_dim + config.mask_dim, 2)
+        self.feat2label = nn.Linear(config.embed_dim + config.mask_dim, 3)
         
         self.inter_crf = LinearCRF(config)
 
@@ -69,7 +69,8 @@ class ElmoAspectSent(nn.Module):
         self.tanh = nn.Tanh()
         self.dropout = nn.Dropout(0.3)
         #Modified by Richard Sun
-        self.cat_layer = SimpleCat(config)
+        #self.cat_layer = SimpleCat(config)
+        self.cat_layer = SimpleCatTgtMasked(config)
 
     
     def compute_scores(self, sents, masks, lens, is_training=True):
@@ -79,7 +80,8 @@ class ElmoAspectSent(nn.Module):
         masks: batch_size*max_len
         lens: batch_size
         '''
-        context = self.bilstm(sents, lens)#batch_size*max_len*dim
+        #context = self.bilstm(sents, lens)#batch_size*max_len*dim
+        context = sents
 
         batch_size, max_len, hidden_dim = context.size()
         

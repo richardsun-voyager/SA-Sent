@@ -1,5 +1,5 @@
 common:
-    exp_name: crf_elmo_exp_20181207
+    exp_name: crf_elmo_exp_20181217
     arch: ElmoAspectSent
     batch_size: 32
 
@@ -7,7 +7,7 @@ common:
     embed_num: 5120
     #For elmo the emb_size is 1024
     embed_dim: 1024
-    mask_dim: 30
+    mask_dim: 60
     if_update_embed: False
 
     # lstm

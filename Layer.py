@@ -66,12 +66,12 @@ class SimpleCatTgtMasked(nn.Module):
         '''
         Concatenate word embeddings and target embeddings
         '''
-        super(SimpleCat, self).__init__()
+        super(SimpleCatTgtMasked, self).__init__()
         self.config = config
         self.word_embed = nn.Embedding(config.embed_num, config.embed_dim)
         #A special embedding for target
-        self.target_emb = torch.rand(config.embed_dim)
-        self.target_emb.requires_grad = True
+        self.target_emb = torch.rand(config.embed_dim)*0.025-0.05
+        
         
         self.mask_embed = nn.Embedding(2, config.mask_dim)
         
@@ -98,6 +98,7 @@ class SimpleCatTgtMasked(nn.Module):
         #Use GloVe embedding
         if self.config.if_gpu:  
             sent, mask = sent.cuda(), mask.cuda()
+            self.target_emb = self.target_emb.cuda()
         # to embeddings
         if is_elmo:
             sent_vec = sent # batch_siz*sent_len * dim
@@ -105,10 +106,13 @@ class SimpleCatTgtMasked(nn.Module):
             sent_vec = self.word_embed(sent)# batch_siz*sent_len * dim
             
             
-#         #Replace target with a special embedding
-#         for i, m in enumerate(mask):
-            
-        
+        #Replace target with a special embedding
+        for i, m in enumerate(mask):
+            target_index = m.argmax()
+            #print(m)
+            sent_vec[i, target_index] = self.target_emb
+                
+
         sent_vec = self.dropout(sent_vec)
         
         #positional embeddings
@@ -137,6 +141,7 @@ class SimpleCatTgtMasked(nn.Module):
             self.word_embed.weight.data.copy_(torch.from_numpy(vectors))
             self.word_embed.weight.requires_grad = self.config.if_update_embed
             self.position_enc.requires_grad = self.config.if_update_embed
+            self.target_emb.requires_grad = True
             print('embeddings loaded')
     
     def reset_binary(self):
@@ -172,7 +177,10 @@ class SimpleCat(nn.Module):
         n_position = 100
         self.position_enc = nn.Embedding(n_position, config.embed_dim, padding_idx=0)
         self.position_enc.weight.data = self.position_encoding_init(n_position, config.embed_dim)
+        
         self.dropout = nn.Dropout(config.dropout)
+        
+        self.senti_embed = nn.Embedding(config.embed_num, 50)
 
     # input are tensors
     def forward(self, sent, mask, is_elmo=False, is_pos=False):
@@ -197,6 +205,14 @@ class SimpleCat(nn.Module):
         
         sent_vec = self.dropout(sent_vec)
         
+        ############
+#         #Add sentiment-specific embeddings
+#         senti_vec = self.senti_embed(sent)
+#         sent_vec = torch.cat([sent_vec, senti_vec], 2)
+                             
+                             
+        
+        
         #positional embeddings
         if is_pos:
             batch_size, max_len, _ = sent_vec.size()
@@ -216,6 +232,9 @@ class SimpleCat(nn.Module):
         return sent_vec
 
     def load_vector(self):
+        '''
+        Load pre-savedd word embeddings
+        '''
         with open(self.config.embed_path, 'rb') as f:
             vectors = pickle.load(f)
             print("Loaded from {} with shape {}".format(self.config.embed_path, vectors.shape))
@@ -224,6 +243,20 @@ class SimpleCat(nn.Module):
             self.word_embed.weight.requires_grad = self.config.if_update_embed
             self.position_enc.requires_grad = self.config.if_update_embed
             print('embeddings loaded')
+            
+    def load_sswu_dict(self):
+        '''
+        Load pre-saved sentiment-specific word embeddings
+        '''
+        path = 'data/tweets/vocab/sswe-u.pkl'
+        with open(path, 'rb') as f:
+            vectors = pickle.load(f)
+            print("Loaded from {} with shape {}".format(path, vectors.shape))
+            self.senti_embed.weight.data.copy_(torch.from_numpy(vectors))
+            self.senti_embed.weight.requires_grad = self.config.if_update_embed
+            print('Sentiment specific embedding loaded')
+
+        
     
     def reset_binary(self):
         self.mask_embed.weight.data[0].zero_()
@@ -370,3 +403,12 @@ class ContextTargetCat(nn.Module):
     
     def reset_binary(self):
         self.mask_embed.weight.data[0].zero_()
+        
+        
+def get_dyt_emb(file = '../data/sswe-u.txt'):
+    word_emb = {}
+    with open(file) as fi:
+        for line in fi:
+            items = line.split()
+            word_emb[items[0]] = np.array(items[1:], dtype=np.float32)
+    return word_emb

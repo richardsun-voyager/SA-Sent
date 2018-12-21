@@ -51,10 +51,10 @@ class ElmoGCNNTSA(nn.Module):
         self.config = config
         
         #V = config.embed_num
-        D = config.l_hidden_size
+        D = config.embed_dim+config.mask_dim#config.l_hidden_size
         C = 3#config.class_num
 
-        Co = 256#kernel numbers
+        Co = 128#kernel numbers
         Ks = [2, 3, 4]#kernel filter size
 
         self.lstm = MLSTM(config)
@@ -80,7 +80,8 @@ class ElmoGCNNTSA(nn.Module):
         label: a list labels
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
-        context = self.lstm(sents, lens)
+        #context = self.lstm(sents, lens)
+        context = sents
 
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
@@ -106,13 +107,26 @@ class ElmoGCNNTSA(nn.Module):
         aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
         
+        #FIRST CONV LAYER
         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-        y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
+        y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs1]
         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
+        
+        
+#         #SECOND CONV LAYER
+#         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
+#         y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
+#         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
+        
+       
+
 
         # pooling method
         x0 = [F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
         x0 = [i.view(i.size(0), -1) for i in x0]
+        
+        x1 = [F.avg_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
+        x1 = [i.view(i.size(0), -1) for i in x1]
 
         sents_vec = torch.cat(x0, 1)#N*(3*out_dim)
         #logit = self.fc1(x0)  # (N,C)

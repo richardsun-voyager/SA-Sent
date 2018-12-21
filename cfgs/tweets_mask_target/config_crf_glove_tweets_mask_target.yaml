@@ -1,6 +1,6 @@
 common:
-    exp_name: config_crf_glove_tweets_mask_target
-    arch: AspectSent
+    exp_name: config_crf_glove_tweets_mask_target_20181219
+    arch: TgtMskSASent
     batch_size: 32
 
     #Map words to lower case
@@ -24,7 +24,7 @@ common:
     opt: Adam
     dropout: 0.5
     epoch: 30
-    lr: 0.0005
+    lr: 0.001
     l2: 0.0
     adjust_every: 8
     clip_norm: 3
@@ -44,9 +44,9 @@ common:
     pretrained_embed_path: ../data/glove.840B.300d.txt
     embed_path: data/tweets_mask_target/vocab/local_emb.pkl
     data_path: data/tweets_mask_target/
-    train_path: data/tweets_mask_target/train.pkl
-    valid_path: data/tweets_mask_target/valid.pkl
-    test_path: data/tweets_mask_target/test.csv.pkl
+    train_path: data/tweets_mask_target/new_train.pkl
+    valid_path: data/tweets_mask_target/new_dev.pkl
+    test_path: data/tweets_mask_target/new_test.pkl
     dic_path: data/tweets_mask_target/vocab/dict.pkl
 
 

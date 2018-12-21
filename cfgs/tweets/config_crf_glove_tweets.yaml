@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_glove_tweets_20181206_4
+    exp_name: config_crf_glove_tweets_20181218
     arch: CRFAspectSent
     batch_size: 32
 
@@ -44,9 +44,9 @@ common:
     pretrained_embed_path: ../data/glove.840B.300d.txt
     embed_path: data/tweets/vocab/local_emb.pkl
     data_path: data/tweets/
-    train_path: data/tweets/train.pkl
-    valid_path: data/tweets/valid.pkl
-    test_path: data/tweets/test.csv.pkl
+    train_path: data/tweets/new_train.pkl
+    valid_path: data/tweets/new_dev.pkl
+    test_path: data/tweets/new_test.pkl
     dic_path: data/tweets/vocab/dict.pkl
 
 

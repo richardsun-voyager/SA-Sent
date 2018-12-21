@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 1000
+    l_hidden_size: 512
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -25,7 +25,7 @@ common:
     dropout: 0.5
     epoch: 30
     lr: 0.05
-    l2: 0.000
+    l2: 0.003
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
