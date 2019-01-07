@@ -53,7 +53,7 @@ common:
     model_path: data/models/
     log_path: data/logs/
     
-    is_stanford_nlp: False
+    is_stanford_nlp: True
     elmo_config_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
     elmo_weight_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
     snapshot_dir: checkpoints/

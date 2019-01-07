@@ -117,6 +117,7 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
             logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         model.train()
         is_best = False
+    logger.info("Test acc: {}".format(test_acc))
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):

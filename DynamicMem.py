@@ -66,7 +66,7 @@ class DNM(nn.Module):
         self.e = None#eposodic vector
         self.m = None#memory
         
-        hidden_dim = config.l_hidden_size
+        hidden_dim = int(config.l_hidden_size/2)
         self.config = config
         self.hidden_dim = hidden_dim
         self.pass_num = pass_num
@@ -79,10 +79,13 @@ class DNM(nn.Module):
         self.gate_gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
         self.memory_gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
         self.gate_c = nn.Linear(hidden_dim, hidden_dim)
-        self.gate_layer1 = nn.Linear(7*hidden_dim, hidden_dim)
+        self.gate_layer1 = nn.Linear(4*hidden_dim, hidden_dim)
         self.gate_layer2 = nn.Linear(hidden_dim, 1)
         init_ortho(self.gate_gru)
         init_ortho(self.memory_gru)
+        init.xavier_normal(self.gate_layer1.state_dict()['weight'])
+        init.xavier_normal(self.gate_layer2.state_dict()['weight'])
+        init.xavier_normal(self.gate_c.state_dict()['weight'])
 
     def forward(self, fact_hiddens, q, fact_lengths):
         '''
@@ -111,7 +114,9 @@ class DNM(nn.Module):
         m = m.expand(sen_num, batch_num, hidden_size).transpose(0, 1)#batch_size*fact_num*hidden_size
         f = fact_hiddens
         
-        z = [f, m, q, f*q, f*m, (f-q).abs(), (f-m).abs()]#, prod_cq, prod_cm]#7*hidden_size+2
+        #z = [f, m, q, f*q, f*m, (f-q).abs(), (f-m).abs()]#, prod_cq, prod_cm]#7*hidden_size+2
+        z = [f*q, f*m, (f-q).abs(), (f-m).abs()]
+        #z = [f*m, (f-m).abs()]
         # prod_cq = torch.matmul(c, self.gate_c(q.transpose(0, 1)))#1*1
         # prod_cm = torch.matmul(c, self.gate_c(m.transpose(0, 1)))
         #Batch_size,fact_num, 7*hidden_size

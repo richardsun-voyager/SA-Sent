@@ -552,6 +552,11 @@ class data_reader:
         train_num = int(self.data_len*5.0/6)
         training_batch = self.data_batch[:train_num]
         valid_batch = self.data_batch[train_num:]
+        #in case dev too small
+        if len(valid_batch) < 500:
+            valid_batch = self.data_batch[:500]
+            training_batch = self.data_batch[500:]
+            
         try:
             with open(train_path, "wb") as f:
                 pickle.dump(training_batch,f)
@@ -616,7 +621,7 @@ class data_generator:
         Generate a batch of training dataset
         '''
         batch_size = self.config.batch_size
-        select_index = np.random.choice(len(all_triples), batch_size)
+        select_index = np.random.choice(len(all_triples), batch_size, replace=False)
         select_trip = [all_triples[i] for i in select_index]
         return select_trip
 
@@ -632,7 +637,7 @@ class data_generator:
         rate = 1.0/count_label
         p = [rate[item[2]] for item in all_triples]
         p = p/sum(p)
-        select_index = np.random.choice(len(all_triples), batch_size, p=p)
+        select_index = np.random.choice(len(all_triples), batch_size, p=p, replace=False)
         select_trip = [all_triples[i] for i in select_index]
         return select_trip
 

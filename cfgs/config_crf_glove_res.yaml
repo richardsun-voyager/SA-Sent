@@ -1,6 +1,6 @@
 common:
-    exp_name: config_crf_glove_20181218
-    arch: AspectSent
+    exp_name: config_crf_glove_20181228
+    arch: TargetSentAnalysis
     batch_size: 32
 
     #Map words to lower case
@@ -12,19 +12,20 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 300
+    l_hidden_size: 200
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
     # penlaty
-    C1: 0.0
-    C2: 0.00
+    C1: 0.2
+    C2: 0.02
     if_reset: True
 
     opt: Adam
     dropout: 0.5
+    dropout2: 0.1
     epoch: 30
-    lr: 0.001
+    lr: 0.002
     l2: 0.000
     adjust_every: 8
     clip_norm: 3

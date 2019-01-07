@@ -27,7 +27,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='TSA')
 
-parser.add_argument('--config', default='cfgs/tweets_mask_target/config_crf_elmo_tweets_mask_target.yaml')#cfgs/indo/config_crf_elmo_indo.yaml')
+parser.add_argument('--config', default='cfgs/tweets/config_crf_cnn_elmo_tweets.yaml')#cfgs/indo/config_crf_elmo_indo.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 

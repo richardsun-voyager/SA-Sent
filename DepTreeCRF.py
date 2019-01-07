@@ -10,15 +10,14 @@ import util
 import numpy as np
 import time
 
-class LinearCRF(nn.Module):
+class DepTreeCRF(nn.Module):
     def __init__(self, config):
-        super(LinearCRF, self).__init__()
-        self.config = config
-        self.label_size = 2
+       super(DepTreeCRF, self).__init__()
+       self.config = config
+       self.label_size = 2
 
        #T[i,j] for j to i, not i to j
-       #self.transitions = nn.Parameter(torch.rand(self.label_size, self.label_size)*2-1)
-        self.transitions = nn.Parameter(torch.randn(self.label_size, self.label_size))
+       self.transitions = nn.Parameter(torch.randn(self.label_size, self.label_size))
     
     # no batch size
     def predict(self, feats):
@@ -192,13 +191,10 @@ class LinearCRF(nn.Module):
         # self.transitions.data[1,0] = -0.5
         pass
 
-#     def init_transition(self, feats):
-#         sent_len, feat_dim = feats.size()
-#         self.dynamic_transitions = torch.zeros(sent_len, self.label_size, self.label_size)
 
     def forward(self, feats):
         sent_len, feat_dim = feats.size()
-        i_feats = feats.unsqueeze(0)#1, sent_len, feat_dim
+        i_feats = feats.unsqueeze(0)
         Z1, forward_mat = self._forward_alg(i_feats) 
         Z2, backward_mat = self._backward_alg(i_feats)
         # assert Z1[0] == Z2[0]

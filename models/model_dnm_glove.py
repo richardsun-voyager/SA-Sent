@@ -16,7 +16,7 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.config = config
 
-        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, config.l_hidden_size, batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.GRU(config.embed_dim + config.mask_dim, config.l_hidden_size, batch_first=True, num_layers = 2,
             bidirectional=False, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -40,7 +40,7 @@ class biLSTM(nn.Module):
         super(biLSTM, self).__init__()
         self.config = config
 
-        self.rnn = nn.LSTM(config.embed_dim + config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.GRU(config.embed_dim + config.mask_dim, int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -72,13 +72,16 @@ class DynamicMemTSA(nn.Module):
 
         self.bilstm = biLSTM(config)
         self.dnm = DNM(config)
-        self.linear = nn.Linear(config.l_hidden_size, 3)
+        self.linear = nn.Linear(int(config.l_hidden_size/2), 3)
+        
+        self.conv = nn.Conv1d(config.l_hidden_size, int(config.l_hidden_size/2), 3, padding=1)
 
 
         self.loss = nn.NLLLoss()
         self.tanh = nn.Tanh()
         self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
+        init.xavier_normal(self.linear.state_dict()['weight'])
         #Modified by Richard Sun
         
     def compute_scores(self, sents, masks, lens):
@@ -91,6 +94,10 @@ class DynamicMemTSA(nn.Module):
         
         #Context embeddings
         context = self.bilstm(sents, lens)#Batch_size*sent_len*hidden_dim
+        
+        context = F.relu(self.conv(context.transpose(1, 2)))
+        context = context.transpose(1, 2)
+        
         batch_size, max_len, hidden_dim = context.size()
         #Target embeddings
         #Find target indices, a list of indices
@@ -104,14 +111,15 @@ class DynamicMemTSA(nn.Module):
         
         target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
         #Expand dimension for concatenation
-        target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim)
-        target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
+#         target_emb_avg_exp = target_emb_avg.expand(max_len, batch_size, hidden_dim)
+#         target_emb_avg_exp = target_emb_avg_exp.transpose(0, 1)#Batch_size*max_len*embedding
 
 
         q = target_emb_avg
         facts = context
         m = self.dnm(facts, q, lens)
         #batch_size*3
+        m = F.dropout(m, 0.2, self.training)
         outputs = self.linear(m)
         scores = F.log_softmax(outputs, dim=1)
         return scores

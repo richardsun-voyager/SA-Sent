@@ -1,5 +1,5 @@
 common:
-    exp_name: config_gcnn_elmo_tweets_20181216
+    exp_name: config_gcnn_elmo_tweets_20181230
     arch: ElmoGCNNTSA
     batch_size: 32
 
@@ -7,12 +7,12 @@ common:
     embed_num: 15906
     #For elmo the emb_size is 1024
     embed_dim: 1024
-    mask_dim: 60
+    mask_dim: 30
     if_update_embed: False
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 128
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -24,7 +24,7 @@ common:
     opt: Adagrad
     dropout: 0.5
     epoch: 30
-    lr: 0.03
+    lr: 0.05
     l2: 0.008
     adjust_every: 8
     clip_norm: 3

@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 256
+    l_hidden_size: 200
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -24,7 +24,7 @@ common:
 
     opt: Adagrad
     dropout: 0.5
-    epoch: 30
+    epoch: 50
     lr: 0.01
     l2: 0.001
     adjust_every: 8
@@ -45,9 +45,9 @@ common:
     pretrained_embed_path: ../data/glove.840B.300d.txt
     embed_path: data/tweets/vocab/local_emb.pkl
     data_path: data/tweets/
-    train_path: data/tweets/new_train.pkl
-    valid_path: data/tweets/new_dev.pkl
-    test_path: data/tweets/new_test.pkl
+    train_path: data/tweets/train.pkl
+    valid_path: data/tweets/valid.pkl
+    test_path: data/tweets/test.csv.pkl
     dic_path: data/tweets/vocab/dict.pkl
 
 

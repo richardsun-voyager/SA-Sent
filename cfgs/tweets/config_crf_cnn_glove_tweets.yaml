@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_cnn_glove_tweets_20181220
+    exp_name: config_crf_cnn_glove_tweets_20181225
     arch: AspectSent
     batch_size: 32
 
@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 300
+    l_hidden_size: 200
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -21,10 +21,11 @@ common:
     C2: 0.02
     if_reset: True
 
-    opt: Adagrad
+    opt: Adam
     dropout: 0.5
+    dropout2: 0.1
     epoch: 30
-    lr: 0.01
+    lr: 0.005
     l2: 0.000
     adjust_every: 8
     clip_norm: 3
@@ -53,7 +54,7 @@ common:
     model_path: data/models/
     log_path: data/logs/
     
-    is_stanford_nlp: True
+    is_stanford_nlp: False
     elmo_config_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
     elmo_weight_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
     snapshot_dir: checkpoints/

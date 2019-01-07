@@ -28,10 +28,10 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/tweets/config_gcnn_glove_tweets.yaml')
+parser.add_argument('--config', default='cfgs/indo/config_gcnn_glove_indo.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
-files = ['cfgs/tweets_mask_target/config_gcnn_glove_tweets_mask_target.yaml']
+files = ['cfgs/indo/config_gcnn_glove_indo.yaml']
 
 args = parser.parse_args()
 
@@ -100,17 +100,17 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args):
 
         #train_acc, train_f1 = evaluate_test(dg_train, model, args)
         valid_acc, valid_f1 = evaluate_test(dg_valid, model, args)
-        logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
-        if valid_acc > best_acc:
+        logger.info("epoch {}, Validation f1: {}".format(e_, valid_f1))
+        if valid_f1 > best_f1:
             is_best = False
-            best_acc = valid_acc
+            best_f1 = valid_f1
             save_checkpoint(model, e_, args, is_best)
             output_samples = False
             if e_ % 10 == 0:
                 output_samples = True
             test_acc, test_f1 = evaluate_test(dg_test, model, args, output_samples)
-            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
-        print('Final test accuracy:', test_acc)
+            logger.info("epoch {}, Test f1: {}".format(e_, test_f1))
+        print('Final test f1:', test_f1)
         model.train()
 
 

@@ -16,7 +16,7 @@ class MLSTM(nn.Module):
         super(MLSTM, self).__init__()
         self.config = config
         #The concatenated word embedding and target embedding as input
-        self.rnn = nn.LSTM(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.GRU(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -55,13 +55,14 @@ class RNNCNNSent(nn.Module):
         C = 3#config.class_num
 
         Co = 128#kernel numbers
-        Ks = [2, 3, 4]#kernel filter size
-        Kt = [2, 3]#kernel filter size for target words
+        #Ks = [2, 3, 4]#kernel filter size
+        Ks = [3, 5]
+        Kt = [3]#kernel filter size for target words
 
         self.lstm = MLSTM(config)
 
-        self.convs1 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
-        self.convs2 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
+        self.convs1 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=int((K-1)/2)) for K in Ks])
+        self.convs2 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=int((K-1)/2)) for K in Ks])
         self.convs3 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=K-2) for K in Kt])
         
         self.convs4 = nn.ModuleList([nn.Conv1d(Co, Co, K) for K in Ks])
@@ -78,8 +79,27 @@ class RNNCNNSent(nn.Module):
         self.cat_layer = SimpleCat(config)
         self.cat_layer.load_vector()
         #Add sentiment embeddings
-        self.cat_layer.load_sswu_dict()
-
+        #self.cat_layer.load_sswu_dict()
+        
+    def get_pos_weight(self, masks, lens):
+        '''
+        Get positional weight
+        '''
+        pos_wghts = torch.zeros(masks.size())
+        t_num = masks.sum(1)
+        for i, m in enumerate(masks):
+            begin = m.argmax()
+            for j, b in enumerate(m):
+                #padding words' weights are zero
+                if j > lens[i]:
+                    break
+                if j < begin:
+                    pos_wghts[i][j] = 1 - (begin-j+5).to(torch.float)/lens[i].to(torch.float)
+                if b == 1:
+                    pos_wghts[i][j] = 1
+                if j > begin + t_num[i]:
+                    pos_wghts[i][j] = 1 - (j-begin+5).to(torch.float)/lens[i].to(torch.float)
+        return pos_wghts
 
     
     def compute_score(self, sents, masks, lens):
@@ -92,11 +112,11 @@ class RNNCNNSent(nn.Module):
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
         context = self.lstm(sents, lens)
-
+#         pos_weights = self.get_pos_weight(masks, lens)#Batch_size*sent_len
+        
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
-        
-        
+
         
         #Find target indices, a list of indices
         target_indices, target_max_len = convert_mask_index(masks)
@@ -120,15 +140,21 @@ class RNNCNNSent(nn.Module):
         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
         aspect_v = self.fc_aspect(aspect_v)
         
-#         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-#         #y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
-#         y = [F.relu(aspect_v.unsqueeze(2)) for conv in self.convs2]
-#         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
-        
-        x = [conv(context.transpose(1, 2)) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-        y = [F.tanh(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
-        #y = [F.sigmoid(aspect_v.unsqueeze(2)) for conv in self.convs2]
+        x = [conv(context.transpose(1, 2)) for conv in self.convs1]  # [(N,Co,len), ...]*len(Ks)
+        y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
+        
+        #Take the position into consideration
+#         pos_weights = pos_weights.expand(128, 
+#                                          batch_size, sent_len).transpose(0, 1)
+#         pos_weights = pos_weights.type_as(context)
+#         x = [i * pos_weights for i in x]
+        
+        
+#         x = [conv(context.transpose(1, 2)) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
+#         y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
+#         #y = [F.sigmoid(aspect_v.unsqueeze(2)) for conv in self.convs2]
+#         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
 
         # pooling method
         x0 = [F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
@@ -139,7 +165,7 @@ class RNNCNNSent(nn.Module):
 
         #Dropout
         if self.training:
-            sents_vec = F.dropout(sents_vec, self.config.dropout)
+            sents_vec = F.dropout(sents_vec, 0.2)
 
         output = self.fc1(sents_vec)#Bach_size*label_size
 

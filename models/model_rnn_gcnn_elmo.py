@@ -51,11 +51,11 @@ class ElmoGCNNTSA(nn.Module):
         self.config = config
         
         #V = config.embed_num
-        D = config.embed_dim+config.mask_dim#config.l_hidden_size
+        D = config.embed_dim#config.l_hidden_size
         C = 3#config.class_num
 
-        Co = 128#kernel numbers
-        Ks = [2, 3, 4]#kernel filter size
+        Co = 64#kernel numbers
+        Ks = [3]#kernel filter size
 
         self.lstm = MLSTM(config)
 
@@ -63,9 +63,11 @@ class ElmoGCNNTSA(nn.Module):
         self.convs2 = nn.ModuleList([nn.Conv1d(D, Co, K) for K in Ks])
         self.convs3 = nn.ModuleList([nn.Conv1d(D, Co, K, padding=K-2) for K in [3]])
 
-        self.fc1 = nn.Linear(len(Ks)*Co, C)
+        self.fc1 = nn.Linear(2*len(Ks)*Co, C)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
+        
+        self.fc_aspect = nn.Linear(config.embed_dim, Co)
         
         self.cat_layer = SimpleCat(config)
 
@@ -101,15 +103,17 @@ class ElmoGCNNTSA(nn.Module):
             target_embe_squeeze[i][:len(index)] = target_emb[i][index]
         if self.config.if_gpu: target_embe_squeeze = target_embe_squeeze.cuda()
         
-        #Conv input: batch_size * emb_dim * max_len
-        #Conv output: batch_size * out_dim * (max_len-k+1)
-        target_conv = [self.relu(conv(target_embe_squeeze.transpose(1, 2))) for conv in self.convs3]  # [(N,Co,L), ...]*len(Ks)
-        aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
-        aspect_v = torch.cat(aa, 1)#N, Co*len(K)
+        target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
+        
+#         #Conv input: batch_size * emb_dim * max_len
+#         #Conv output: batch_size * out_dim * (max_len-k+1)
+#         target_conv = [self.relu(conv(target_embe_squeeze.transpose(1, 2))) for conv in self.convs3]  # [(N,Co,L), ...]*len(Ks)
+#         aa = [F.max_pool1d(a, a.size(2)).squeeze(2) for a in target_conv]# [(batch_size,Co), ...]*len(Ks)
+#         aspect_v = torch.cat(aa, 1)#N, Co*len(K)
         
         #FIRST CONV LAYER
         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-        y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs1]
+        y = [F.relu(conv(context.transpose(1, 2)) + self.fc_aspect(target_emb_avg).unsqueeze(2)) for conv in self.convs2]
         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
         
         
@@ -128,12 +132,14 @@ class ElmoGCNNTSA(nn.Module):
         x1 = [F.avg_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
         x1 = [i.view(i.size(0), -1) for i in x1]
 
-        sents_vec = torch.cat(x0, 1)#N*(3*out_dim)
+        sents_vec1 = torch.cat(x0, 1)#N*(3*out_dim)
+        sents_vec2 = torch.cat(x1, 1)
+        sents_vec = torch.cat([sents_vec1, sents_vec2], 1)
         #logit = self.fc1(x0)  # (N,C)
 
         #Dropout
         if self.training:
-            sents_vec = F.dropout(sents_vec, self.config.dropout)
+            sents_vec = F.dropout(sents_vec, 0.2)
 
         output = self.fc1(sents_vec)#Bach_size*label_size
 
@@ -144,7 +150,7 @@ class ElmoGCNNTSA(nn.Module):
     def forward(self, sents, masks, labels, lens):
         #Sent emb_dim + 50
         if self.config.if_reset:  self.cat_layer.reset_binary()
-        sents = self.cat_layer(sents, masks, True)
+        sents = self.cat_layer(sents, masks, True)[:,:,:-30]
         scores = self.compute_score(sents, masks, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
@@ -155,7 +161,7 @@ class ElmoGCNNTSA(nn.Module):
 
     def predict(self, sents, masks, sent_lens):
         if self.config.if_reset:  self.cat_layer.reset_binary()
-        sents = self.cat_layer(sents, masks, True)
+        sents = self.cat_layer(sents, masks, True)[:,:,:-30]
         scores = self.compute_score(sents, masks, sent_lens)
         _, pred_labels = scores.max(1)#Find the max label in the 2nd dimension
         

@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_cnn_glove_laptop_20181220
+    exp_name: config_crf_cnn_glove_laptop_20181225
     arch: AspectSent
     batch_size: 16
 
@@ -21,11 +21,12 @@ common:
     C2: 0.02
     if_reset: True
 
-    opt: Adagrad
-    dropout: 0.5
+    opt: Adam
+    dropout: 0.5 #input embeddings
+    dropout2: 0.2 #output score
     epoch: 30
     lr: 0.005
-    l2: 0.0001
+    l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6

@@ -27,9 +27,12 @@ model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
 
 #Set default parameters of training
+path_tweet = 'cfgs/tweets/config_crf_cnn_glove_tweets.yaml'
+path_laptop = 'cfgs/laptop/config_crf_cnn_glove_laptop.yaml'
+files = ['cfgs/indo/config_crf_glove_indo.yaml']
 parser = argparse.ArgumentParser(description='TSA')
 parser.add_argument('--config', 
-                    default='cfgs/laptop/config_crf_cnn_glove_laptop.yaml')#'config_crf_rnn_glove_res.yaml')
+                    default=path_laptop)#'config_crf_rnn_glove_res.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -105,18 +108,20 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
                 tb_logger.add_scalar("train_loss", idx+e_*loops, cls_loss_value.avg)
                 
         valid_acc, valid_f1 = evaluate_test(dg_valid, model, args)
-        #logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
-        if valid_acc > best_acc:
+        logger.info("epoch {}, Validation f1: {}".format(e_, valid_f1))
+        if valid_f1 > best_f1:
             is_best = True
-            best_acc = valid_acc
+            best_f1 = valid_f1
             save_checkpoint(model, e_, args, is_best)
             output_samples = False
             if e_ % 10 == 0:
                 output_samples = True
             test_acc, test_f1 = evaluate_test(dg_test, model, args, output_samples)
-            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+            logger.info("epoch {}, Test f1: {}".format(e_, test_f1))
+        
         model.train()
         is_best = False
+    logger.info("Best Test f1: {}".format(test_f1))
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):
@@ -172,63 +177,64 @@ def evaluate_test(dr_test, model, args, sample_out=False):
 
 def main():
     """ Create the model and start the training."""
-    with open(args.config) as f:
-        config = yaml.load(f)
+    for file in files:
+        with open(file) as f:
+            config = yaml.load(f)
 
 
-    for k, v in config['common'].items():
-        setattr(args, k, v)
-    mkdirs(osp.join("logs/"+args.exp_name))
-    mkdirs(osp.join("checkpoints/"+args.exp_name))
-    global logger
-    logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
+        for k, v in config['common'].items():
+            setattr(args, k, v)
+        mkdirs(osp.join("logs/"+args.exp_name))
+        mkdirs(osp.join("checkpoints/"+args.exp_name))
+        global logger
+        logger = create_logger('global_logger', 'logs/' + args.exp_name + '/log.txt')
 
-    logger.info('{}'.format(args))
-
-
-    for key, val in vars(args).items():
-        logger.info("{:16} {}".format(key, val))
+        logger.info('{}'.format(args))
 
 
-
-    cudnn.enabled = True
-    args.snapshot_dir = osp.join(args.snapshot_dir, args.exp_name)
-
-    global tb_logger
-    tb_logger =SummaryWriter("logs/" + args.exp_name)
-    global best_acc
-    best_acc = 0
-    
-    ##Load datasets
-    dr = data_reader(args)
-    train_data = dr.load_data(args.train_path)
-    valid_data = dr.load_data(args.valid_path)
-    test_data = dr.load_data(args.test_path)
-    logger.info("Training Samples: {}".format(len(train_data)))
-    logger.info("Validating Samples: {}".format(len(valid_data)))
-    logger.info("Testing Samples: {}".format(len(test_data)))
+        for key, val in vars(args).items():
+            logger.info("{:16} {}".format(key, val))
 
 
-    dg_train = data_generator(args, train_data)
-    dg_valid = data_generator(args, valid_data, False)
-    dg_test = data_generator(args, test_data, False)
 
-    model = models.__dict__[args.arch](args)
-    
-    path = None#'checkpoints/config_crf_glove_tweets_20181206_3/checkpoint.pth.tar9'
-    if path:
-        model.load_state_dict(torch.load(path))
-    if args.use_gpu:
-        model.cuda()
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = create_opt(parameters, args)
-    
+        cudnn.enabled = True
+        args.snapshot_dir = osp.join(args.snapshot_dir, args.exp_name)
+
+        global tb_logger
+        tb_logger =SummaryWriter("logs/" + args.exp_name)
+        global best_acc
+        best_acc = 0
+
+        ##Load datasets
+        dr = data_reader(args)
+        train_data = dr.load_data(args.train_path)
+        valid_data = dr.load_data(args.valid_path)
+        test_data = dr.load_data(args.test_path)
+        logger.info("Training Samples: {}".format(len(train_data)))
+        logger.info("Validating Samples: {}".format(len(valid_data)))
+        logger.info("Testing Samples: {}".format(len(test_data)))
 
 
-    if args.training:
-        train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger)
-    else:
-        pass
+        dg_train = data_generator(args, train_data)
+        dg_valid = data_generator(args, valid_data, False)
+        dg_test = data_generator(args, test_data, False)
+
+        model = models.__dict__[args.arch](args)
+
+        path = None#'checkpoints/config_crf_glove_tweets_20181206_3/checkpoint.pth.tar9'
+        if path:
+            model.load_state_dict(torch.load(path))
+        if args.use_gpu:
+            model.cuda()
+        parameters = filter(lambda p: p.requires_grad, model.parameters())
+        optimizer = create_opt(parameters, args)
+
+
+
+        if args.training:
+            train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger)
+        else:
+            pass
 
 
 

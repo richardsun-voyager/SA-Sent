@@ -1,10 +1,10 @@
 common:
-    exp_name: config_dnm_tweets_20181231
-    arch: DynamicMemTSA
-    batch_size: 32
+    exp_name: config_crf_cnn_glove_laptop_20181226II
+    arch: AspectSent
+    batch_size: 16
 
     #Map words to lower case
-    embed_num: 15906
+    embed_num: 4063
     #For elmo the emb_size is 1024
     embed_dim: 300
     mask_dim: 30
@@ -12,24 +12,25 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 200
-    l_num_layers: 4 # forward and backward
+    l_hidden_size: 300
+    l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
     # penlaty
-    C1: 0.2
-    C2: 0.05
+    C1: 0.1
+    C2: 0.02
     if_reset: True
 
     opt: Adam
-    dropout: 0.5
-    epoch: 50
-    lr: 0.003
-    l2: 0.0001
+    dropout: 0.5 #input embeddings
+    dropout2: 0.1 #output score
+    epoch: 20
+    lr: 0.005
+    l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
-    print_freq: 50
+    print_freq: 30
     finetune_embed: False
     # data processing
     if_replace: False
@@ -42,12 +43,12 @@ common:
 
     #################Restaurant
     pretrained_embed_path: ../data/glove.840B.300d.txt
-    embed_path: data/tweets/vocab/local_emb.pkl
-    data_path: data/tweets/
-    train_path: data/tweets/train.pkl
-    valid_path: data/tweets/valid.pkl
-    test_path: data/tweets/test.csv.pkl
-    dic_path: data/tweets/vocab/dict.pkl
+    embed_path: data/laptop/vocab/local_emb.pkl
+    data_path: data/laptop/
+    train_path: data/laptop/Laptop_Train_v2.xml.pkl
+    valid_path: data/laptop/valid.pkl
+    test_path: data/laptop/Laptops_Test_Gold.xml.pkl
+    dic_path: data/laptop/vocab/dict.pkl
 
 
     model_path: data/models/

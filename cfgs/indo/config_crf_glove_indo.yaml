@@ -1,6 +1,6 @@
 common:
     exp_name: crf_rnn_indo_20181209
-    arch: CRFAspectSent
+    arch: AspectSent
     batch_size: 32
 
     #Map words to lower case
@@ -23,6 +23,7 @@ common:
 
     opt: Adam
     dropout: 0.5
+    dropout2: 0.1
     epoch: 30
     lr: 0.003
     l2: 0.0
