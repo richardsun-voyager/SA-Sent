@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_elmo_tweets_20181212
+    exp_name: config_crf_elmo_tweets_20190108
     arch: ElmoAspectSent
     batch_size: 32
 
@@ -7,12 +7,12 @@ common:
     embed_num: 15906
     #For elmo the emb_size is 1024
     embed_dim: 1024
-    mask_dim: 30
+    mask_dim: 10
     if_update_embed: False
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 512
+    l_hidden_size: 64
     l_num_layers: 2 # forward and backward
     l_dropout: 0.1
 
@@ -25,7 +25,7 @@ common:
     dropout: 0.5
     epoch: 30
     lr: 0.05
-    l2: 0.003
+    l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6

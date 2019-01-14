@@ -1,5 +1,5 @@
 common:
-    exp_name: config_gcnn_glove_tweets_20181218
+    exp_name: config_gcnn_glove_tweets_20190101
     arch: RNNCNNSent
     batch_size: 32
 

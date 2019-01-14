@@ -1,6 +1,6 @@
 common:
-    exp_name: config_crf_glove_20181228
-    arch: TargetSentAnalysis
+    exp_name: config_crf_glove_20190113
+    arch: AspectSent
     batch_size: 32
 
     #Map words to lower case
@@ -12,8 +12,8 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 200
-    l_num_layers: 2 # forward and backward
+    l_hidden_size: 100
+    l_num_layers: 4 # forward and backward
     l_dropout: 0.1
 
     # penlaty
@@ -21,11 +21,11 @@ common:
     C2: 0.02
     if_reset: True
 
-    opt: Adam
+    opt: Adagrad
     dropout: 0.5
-    dropout2: 0.1
+    dropout2: 0.2
     epoch: 30
-    lr: 0.002
+    lr: 0.008
     l2: 0.000
     adjust_every: 8
     clip_norm: 3
@@ -43,7 +43,7 @@ common:
 
     #################Restaurant
     pretrained_embed_path: ../data/glove.840B.300d.txt
-    embed_path: data/restaurant/vocab/local_emb.pkl
+    embed_path: data/restaurant/vocab/local_emb2.pkl
     data_path: data/restaurant/
     train_path: data/restaurant/train.pkl
     valid_path: data/restaurant/valid.pkl

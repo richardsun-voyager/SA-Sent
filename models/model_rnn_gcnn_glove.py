@@ -54,7 +54,8 @@ class RNNCNNSent(nn.Module):
         D = config.l_hidden_size
         C = 3#config.class_num
 
-        Co = 128#kernel numbers
+        Co = int(config.l_hidden_size/2)#kernel numbers
+        self.co = Co
         #Ks = [2, 3, 4]#kernel filter size
         Ks = [3, 5]
         Kt = [3]#kernel filter size for target words
@@ -70,7 +71,7 @@ class RNNCNNSent(nn.Module):
         
         self.fc_aspect = nn.Linear(len(Kt)*Co, Co)
 
-        self.fc1 = nn.Linear(len(Ks)*Co, C)
+        self.fc1 = nn.Linear(2*len(Ks)*Co, C)
         
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -112,7 +113,7 @@ class RNNCNNSent(nn.Module):
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
         context = self.lstm(sents, lens)
-#         pos_weights = self.get_pos_weight(masks, lens)#Batch_size*sent_len
+       # pos_weights = self.get_pos_weight(masks, lens)#Batch_size*sent_len
         
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
@@ -145,7 +146,7 @@ class RNNCNNSent(nn.Module):
         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
         
         #Take the position into consideration
-#         pos_weights = pos_weights.expand(128, 
+#         pos_weights = pos_weights.expand(self.co, 
 #                                          batch_size, sent_len).transpose(0, 1)
 #         pos_weights = pos_weights.type_as(context)
 #         x = [i * pos_weights for i in x]
@@ -156,11 +157,17 @@ class RNNCNNSent(nn.Module):
 #         #y = [F.sigmoid(aspect_v.unsqueeze(2)) for conv in self.convs2]
 #         x = [i*j for i, j in zip(x, y)] #batch_size, Co, len-1 .  batch_size, Co, len-2
 
+#         x = [i * pos_weights for i in x]
+
         # pooling method
         x0 = [F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
+        x1 = [F.avg_pool1d(i, i.size(2)).squeeze(2) for i in x]  # [(N,out_dim), ...]*len(Ks)
+        x2 = [torch.min(i, 2)[0] for i in x]  # [(N,out_dim), ...]*len(Ks)
         x0 = [i.view(i.size(0), -1) for i in x0]#batch_size*2Co
+        x1 = [i.view(i.size(0), -1) for i in x1]#batch_size*2Co
+        #x2 = [i.view(i.size(0), -1) for i in x2]
 
-        sents_vec = torch.cat(x0, 1)#N*(3*out_dim)
+        sents_vec = torch.cat(x0+x1, 1)#N*(2*out_dim)
         #logit = self.fc1(x0)  # (N,C)
 
         #Dropout

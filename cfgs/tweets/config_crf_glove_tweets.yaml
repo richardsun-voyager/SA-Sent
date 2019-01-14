@@ -1,19 +1,19 @@
 common:
-    exp_name: config_crf_glove_tweets_20181218
-    arch: CRFAspectSent
+    exp_name: config_crf_glove_tweets_20190106
+    arch: AspectSent
     batch_size: 32
 
     #Map words to lower case
     embed_num: 15906
     #For elmo the emb_size is 1024
-    embed_dim: 300
+    embed_dim: 400
     mask_dim: 30
     if_update_embed: False
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 300
-    l_num_layers: 2 # forward and backward
+    l_hidden_size: 64
+    l_num_layers: 4 # forward and backward
     l_dropout: 0.1
 
     # penlaty
@@ -22,7 +22,8 @@ common:
     if_reset: True
 
     opt: Adagrad
-    dropout: 0.5
+    dropout: 0.3
+    dropout2: 0.3
     epoch: 30
     lr: 0.01
     l2: 0.000
@@ -42,11 +43,11 @@ common:
 
     #################Restaurant
     pretrained_embed_path: ../data/glove.840B.300d.txt
-    embed_path: data/tweets/vocab/local_emb.pkl
+    embed_path: data/tweets/vocab/enhanced_local_emb.pkl
     data_path: data/tweets/
-    train_path: data/tweets/new_train.pkl
-    valid_path: data/tweets/new_dev.pkl
-    test_path: data/tweets/new_test.pkl
+    train_path: data/tweets/train.pkl
+    valid_path: data/tweets/valid.pkl
+    test_path: data/tweets/test.csv.pkl
     dic_path: data/tweets/vocab/dict.pkl
 
 

@@ -16,7 +16,7 @@ class MLSTM(nn.Module):
         super(MLSTM, self).__init__()
         self.config = config
         #The concatenated word embedding and target embedding as input
-        self.rnn = nn.LSTM(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
+        self.rnn = nn.GRU(config.embed_dim+config.mask_dim , int(config.l_hidden_size / 2), batch_first=True, num_layers = int(config.l_num_layers / 2),
             bidirectional=True, dropout=config.l_dropout)
         init_ortho(self.rnn)
 
@@ -51,10 +51,10 @@ class ElmoGCNNTSA(nn.Module):
         self.config = config
         
         #V = config.embed_num
-        D = config.embed_dim#config.l_hidden_size
+        D = config.l_hidden_size
         C = 3#config.class_num
 
-        Co = 64#kernel numbers
+        Co = int(config.l_hidden_size/2)#kernel numbers
         Ks = [3]#kernel filter size
 
         self.lstm = MLSTM(config)
@@ -67,7 +67,7 @@ class ElmoGCNNTSA(nn.Module):
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         
-        self.fc_aspect = nn.Linear(config.embed_dim, Co)
+        self.fc_aspect = nn.Linear(D, Co)
         
         self.cat_layer = SimpleCat(config)
 
@@ -82,8 +82,8 @@ class ElmoGCNNTSA(nn.Module):
         label: a list labels
         '''
         #Get the rnn outputs for each word, batch_size*max_len*hidden_size
-        #context = self.lstm(sents, lens)
-        context = sents
+        context = self.lstm(sents, lens)
+        #context = sents
 
         #Get the target embedding
         batch_size, sent_len, dim = context.size()
@@ -97,11 +97,11 @@ class ElmoGCNNTSA(nn.Module):
         masks = masks.type_as(context)
         masks = masks.expand(dim, batch_size, sent_len).transpose(0, 1).transpose(1, 2)
         target_emb = masks * context
-        #Get embeddings for each target
-        target_embe_squeeze = torch.zeros(batch_size, target_max_len, dim)
-        for i, index in enumerate(target_indices):
-            target_embe_squeeze[i][:len(index)] = target_emb[i][index]
-        if self.config.if_gpu: target_embe_squeeze = target_embe_squeeze.cuda()
+#         #Get embeddings for each target
+#         target_embe_squeeze = torch.zeros(batch_size, target_max_len, dim)
+#         for i, index in enumerate(target_indices):
+#             target_embe_squeeze[i][:len(index)] = target_emb[i][index]
+#         if self.config.if_gpu: target_embe_squeeze = target_embe_squeeze.cuda()
         
         target_emb_avg = torch.sum(target_emb, 1)/torch.sum(masks, 1)#Batch_size*embedding
         
@@ -115,12 +115,6 @@ class ElmoGCNNTSA(nn.Module):
         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
         y = [F.relu(conv(context.transpose(1, 2)) + self.fc_aspect(target_emb_avg).unsqueeze(2)) for conv in self.convs2]
         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
-        
-        
-#         #SECOND CONV LAYER
-#         x = [F.tanh(conv(context.transpose(1, 2))) for conv in self.convs1]  # [(N,Co,L), ...]*len(Ks)
-#         y = [F.relu(conv(context.transpose(1, 2)) + aspect_v.unsqueeze(2)) for conv in self.convs2]
-#         x = [i*j for i, j in zip(x, y)] #batch_size * out_dim * (max_len-k+1) * len(filters)
         
        
 
@@ -150,7 +144,7 @@ class ElmoGCNNTSA(nn.Module):
     def forward(self, sents, masks, labels, lens):
         #Sent emb_dim + 50
         if self.config.if_reset:  self.cat_layer.reset_binary()
-        sents = self.cat_layer(sents, masks, True)[:,:,:-30]
+        sents = self.cat_layer(sents, masks, True)
         scores = self.compute_score(sents, masks, lens)
         loss = nn.NLLLoss()
         #cls_loss = -1 * torch.log(scores[label])
@@ -161,7 +155,7 @@ class ElmoGCNNTSA(nn.Module):
 
     def predict(self, sents, masks, sent_lens):
         if self.config.if_reset:  self.cat_layer.reset_binary()
-        sents = self.cat_layer(sents, masks, True)[:,:,:-30]
+        sents = self.cat_layer(sents, masks, True)
         scores = self.compute_score(sents, masks, sent_lens)
         _, pred_labels = scores.max(1)#Find the max label in the 2nd dimension
         

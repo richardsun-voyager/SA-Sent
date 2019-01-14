@@ -28,10 +28,10 @@ model_names = sorted(name for name in models.__dict__
 
 #Set default parameters of training
 parser = argparse.ArgumentParser(description='TSA')
-parser.add_argument('--config', default='cfgs/indo/config_gcnn_glove_indo.yaml')
+parser.add_argument('--config', default='cfgs/tweets/config_gcnn_glove_tweets.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
-files = ['cfgs/indo/config_gcnn_glove_indo.yaml']
+files = ['cfgs/tweets/config_gcnn_glove_tweets.yaml']
 
 args = parser.parse_args()
 

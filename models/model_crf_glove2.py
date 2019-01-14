@@ -138,12 +138,6 @@ class TargetSentAnalysis(nn.Module):
         label_scores = []
         best_latent_seqs = []
         
-        #Take the position into consideration
-#         pos_weights = pos_weights.expand(hidden_dim, 
-#                                          batch_size, max_len).transpose(0, 1).transpose(1, 2)
-#         pos_weights = pos_weights.type_as(context)
-#         context = context * pos_weights
-        
         
         #Sentences have different lengths, so deal with them one by one
         for i, tri_score in enumerate(tri_scores):

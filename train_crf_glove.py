@@ -27,9 +27,10 @@ model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
 
 #Set default parameters of training
-path_tweet = 'cfgs/tweets/config_crf_cnn_glove_tweets.yaml'
+path_tweet = 'cfgs/tweets/config_crf_glove_tweets.yaml'
 path_laptop = 'cfgs/laptop/config_crf_cnn_glove_laptop.yaml'
-files = ['cfgs/indo/config_crf_glove_indo.yaml']
+path_res = 'cfgs/config_crf_glove_res.yaml'
+files = [path_res]
 parser = argparse.ArgumentParser(description='TSA')
 parser.add_argument('--config', 
                     default=path_laptop)#'config_crf_rnn_glove_res.yaml')
@@ -108,20 +109,20 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
                 tb_logger.add_scalar("train_loss", idx+e_*loops, cls_loss_value.avg)
                 
         valid_acc, valid_f1 = evaluate_test(dg_valid, model, args)
-        logger.info("epoch {}, Validation f1: {}".format(e_, valid_f1))
-        if valid_f1 > best_f1:
+        logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
+        if valid_acc > best_acc:
             is_best = True
-            best_f1 = valid_f1
+            best_acc = valid_acc
             save_checkpoint(model, e_, args, is_best)
             output_samples = False
             if e_ % 10 == 0:
                 output_samples = True
             test_acc, test_f1 = evaluate_test(dg_test, model, args, output_samples)
-            logger.info("epoch {}, Test f1: {}".format(e_, test_f1))
+            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
         
         model.train()
         is_best = False
-    logger.info("Best Test f1: {}".format(test_f1))
+    logger.info("Best Test acc: {}".format(test_acc))
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):
