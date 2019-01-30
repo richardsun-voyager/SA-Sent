@@ -1,6 +1,6 @@
 common:
-    exp_name: config_crf_glove_20190113
-    arch: AspectSent
+    exp_name: config_crf_glove_20190117
+    arch: SemiAspectSent
     batch_size: 32
 
     #Map words to lower case
@@ -12,7 +12,7 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 100
+    l_hidden_size: 80
     l_num_layers: 4 # forward and backward
     l_dropout: 0.1
 
@@ -23,10 +23,10 @@ common:
 
     opt: Adagrad
     dropout: 0.5
-    dropout2: 0.2
+    dropout2: 0.1
     epoch: 30
     lr: 0.008
-    l2: 0.000
+    l2: 0.001
     adjust_every: 8
     clip_norm: 3
     k_fold: 6
@@ -43,7 +43,7 @@ common:
 
     #################Restaurant
     pretrained_embed_path: ../data/glove.840B.300d.txt
-    embed_path: data/restaurant/vocab/local_emb2.pkl
+    embed_path: data/restaurant/vocab/local_emb.pkl
     data_path: data/restaurant/
     train_path: data/restaurant/train.pkl
     valid_path: data/restaurant/valid.pkl

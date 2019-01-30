@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_glove_tweets_20190106
+    exp_name: config_crf_glove_tweets_20190110
     arch: AspectSent
     batch_size: 32
 
@@ -12,20 +12,20 @@ common:
 
     # lstm
     #l_hidden_size: 256
-    l_hidden_size: 64
+    l_hidden_size: 50
     l_num_layers: 4 # forward and backward
     l_dropout: 0.1
 
     # penlaty
-    C1: 0.1
-    C2: 0.02
+    C1: 0.10
+    C2: 0.05
     if_reset: True
 
-    opt: Adagrad
+    opt: Adam
     dropout: 0.3
-    dropout2: 0.3
+    dropout2: 0.1
     epoch: 30
-    lr: 0.01
+    lr: 0.001
     l2: 0.000
     adjust_every: 8
     clip_norm: 3

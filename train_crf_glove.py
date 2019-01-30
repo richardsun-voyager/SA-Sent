@@ -30,6 +30,7 @@ model_names = sorted(name for name in models.__dict__
 path_tweet = 'cfgs/tweets/config_crf_glove_tweets.yaml'
 path_laptop = 'cfgs/laptop/config_crf_cnn_glove_laptop.yaml'
 path_res = 'cfgs/config_crf_glove_res.yaml'
+path_indo = 'cfgs/indo_leiming/config_crf_glove_indo_leiming.yaml'
 files = [path_res]
 parser = argparse.ArgumentParser(description='TSA')
 parser.add_argument('--config', 

@@ -137,6 +137,7 @@ class dataHelper():
         sent_str = " ".join(sent_str.split(")"))
         sent_str = " ".join(sent_str.split(";"))
         sent_str = " ".join(sent_str.split("@"))
+        sent_str = " ".join(sent_str.split("#"))
         sent_str = " ".join(sent_str.split())
         return sent_str
 

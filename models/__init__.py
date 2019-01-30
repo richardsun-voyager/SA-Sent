@@ -1,4 +1,5 @@
 from .model_batch_crf_elmo import *
+#from .model_batch_crf_glove_no_mask import *
 from .model_batch_crf_glove import *
 #from .model_crf_glove import *
 #from .model_crf_glove2 import *
@@ -11,3 +12,4 @@ from .model_crf_tag_glove import *
 from .model_crf_target_glove import *
 from .model_crf_mem_glove import *
 from .model_dnm_glove import *
+from .model_semicrf_glove import *
