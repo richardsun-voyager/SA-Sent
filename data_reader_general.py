@@ -590,7 +590,8 @@ class data_generator:
         
         options_file = config.elmo_config_file 
         weight_file = config.elmo_weight_file
-        self.elmo = Elmo(options_file, weight_file, 2, dropout=0)
+        if options_file != '':
+            self.elmo = Elmo(options_file, weight_file, 2, dropout=0)
         
     def remove_empty_target(self, data_batch):
         '''

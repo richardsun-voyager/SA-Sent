@@ -8,7 +8,7 @@ import numpy as np
 parser = argparse.ArgumentParser(description='TSA')
 #parser.add_argument('--config', default='cfgs/config_crf_tag_glove_res.yaml')
 #parser.add_argument('--config', default='cfgs/indo_translated/config_crf_glove_indo_translated.yaml')
-parser.add_argument('--config', default='cfgs/indo_leiming/config_crf_glove_indo_leiming.yaml')
+parser.add_argument('--config', default='data/indo_preprocessed/config_crf_glove_indo_preprocessed.yaml')
 parser.add_argument('--load_path', default='', type=str)
 parser.add_argument('--e', '--evaluate', action='store_true')
 
@@ -71,10 +71,10 @@ def train():
 #     path3 = "data/indo/en_test.csv"
 #     path_list = [path1, path2, path3]
 
-    ########Load Indonesian translated data###############
-    path1 = "data/indo_leiming/train_data_original.csv"
-    path2 = "data/indo_leiming/dev_data_original.csv"
-    path3 = "data/indo_leiming/test_data_original.csv"
+    ########Load Indonesian preprocessed data###############
+    path1 = "data/indo_preprocessed/train.csv"
+    path2 = "data/indo_preprocessed/dev.csv"
+    path3 = "data/indo_preprocessed/test.csv"
     path_list = [path1, path2, path3]
 
 

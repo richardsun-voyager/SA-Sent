@@ -30,8 +30,8 @@ model_names = sorted(name for name in models.__dict__
 path_tweet = 'cfgs/tweets/config_crf_glove_tweets.yaml'
 path_laptop = 'cfgs/laptop/config_crf_cnn_glove_laptop.yaml'
 path_res = 'cfgs/config_crf_glove_res.yaml'
-path_indo = 'cfgs/indo_leiming/config_crf_glove_indo_leiming.yaml'
-files = [path_res]
+path_indo = 'data/indo_preprocessed/config_crf_glove_indo_preprocessed.yaml'
+files = [path_indo]
 parser = argparse.ArgumentParser(description='TSA')
 parser.add_argument('--config', 
                     default=path_laptop)#'config_crf_rnn_glove_res.yaml')
@@ -95,7 +95,10 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
             adjust_learning_rate(optimizer, e_, args)
         for idx in range(loops):
             sent_vecs, mask_vecs, label_list, sent_lens, _, _, _ = next(dg_train.get_ids_samples())
-            cls_loss, norm_pen = model(sent_vecs.cuda(), mask_vecs.cuda(), label_list.cuda(), sent_lens.cuda())
+            if args.if_gpu:
+                sent_vecs, mask_vecs = sent_vecs.cuda(), mask_vecs.cuda()
+                label_list, sent_lens = label_list.cuda(), sent_lens.cuda()
+            cls_loss, norm_pen = model(sent_vecs, mask_vecs, label_list, sent_lens)
             cls_loss_value.update(cls_loss.item())
 
             total_loss = cls_loss + norm_pen
@@ -110,20 +113,20 @@ def train(model, dg_train, dg_valid, dg_test, optimizer, args, tb_logger):
                 tb_logger.add_scalar("train_loss", idx+e_*loops, cls_loss_value.avg)
                 
         valid_acc, valid_f1 = evaluate_test(dg_valid, model, args)
-        logger.info("epoch {}, Validation acc: {}".format(e_, valid_acc))
-        if valid_acc > best_acc:
+        logger.info("epoch {}, Validation f1: {}".format(e_, valid_f1))
+        if valid_f1 > best_f1:
             is_best = True
-            best_acc = valid_acc
+            best_f1 = valid_f1
             save_checkpoint(model, e_, args, is_best)
             output_samples = False
             if e_ % 10 == 0:
                 output_samples = True
             test_acc, test_f1 = evaluate_test(dg_test, model, args, output_samples)
-            logger.info("epoch {}, Test acc: {}".format(e_, test_acc))
+            logger.info("epoch {}, Test f1: {}".format(e_, test_f1))
         
         model.train()
         is_best = False
-    logger.info("Best Test acc: {}".format(test_acc))
+    logger.info("Best Test f1: {}".format(test_f1))
 
 
 def evaluate_test(dr_test, model, args, sample_out=False):
@@ -141,16 +144,18 @@ def evaluate_test(dr_test, model, args, sample_out=False):
     print("transitions matrix ", model.inter_crf.transitions.data)
     while dr_test.index < dr_test.data_len:
         sent, mask, label, sent_len, texts, targets, _ = next(dr_test.get_ids_samples())
+        if args.if_gpu:
+            sent, mask, sent_len, label = sent.cuda(), mask.cuda(), sent_len.cuda(), label.cuda()
         pred_label, best_seq = model.predict(sent.cuda(), mask.cuda(), sent_len.cuda())
 
         #Compute correct predictions
-        correct_count += sum(pred_label==label.cuda()).item()
+        correct_count += sum(pred_label==label).item()
         
         true_labels.extend(label.cpu().numpy())
         pred_labels.extend(pred_label.cpu().numpy())
         
         ##Output wrong samples, for debugging
-        indices = torch.nonzero(pred_label!=label.cuda())
+        indices = torch.nonzero(pred_label!=label)
         if len(indices) > 0:
             indices = indices.squeeze(1)
         if sample_out:
@@ -226,8 +231,8 @@ def main():
         path = None#'checkpoints/config_crf_glove_tweets_20181206_3/checkpoint.pth.tar9'
         if path:
             model.load_state_dict(torch.load(path))
-        if args.use_gpu:
-            model.cuda()
+        if args.if_gpu:
+            model = model.cuda()
         parameters = filter(lambda p: p.requires_grad, model.parameters())
         optimizer = create_opt(parameters, args)
 

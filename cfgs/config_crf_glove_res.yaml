@@ -1,5 +1,5 @@
 common:
-    exp_name: config_crf_glove_20190117
+    exp_name: config_crf_glove_20190217
     arch: SemiAspectSent
     batch_size: 32
 
@@ -22,8 +22,8 @@ common:
     if_reset: True
 
     opt: Adagrad
-    dropout: 0.5
-    dropout2: 0.1
+    dropout: 0.3
+    dropout2: 0.2
     epoch: 30
     lr: 0.008
     l2: 0.001
@@ -36,8 +36,8 @@ common:
     if_replace: False
     training: True
     # traning
-    if_gpu: True
-    use_gpu: True
+    if_gpu: False
+    use_gpu: False
     # data_path: data/2014/data.pkl
     # dic_path: data/2014/dic.pkl
 
@@ -54,7 +54,7 @@ common:
     model_path: data/models/
     log_path: data/logs/
     
-    is_stanford_nlp: True
-    elmo_config_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
-    elmo_weight_file: ../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+    is_stanford_nlp: False
+    elmo_config_file: '' #../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json
+    elmo_weight_file: '' #../data/Elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
     snapshot_dir: checkpoints/
