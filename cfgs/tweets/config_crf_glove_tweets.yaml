@@ -1,0 +1,62 @@
+common:
+    exp_name: config_crf_glove_char_tweets_20190301
+    arch: AspectSent #AspectSent
+    batch_size: 32
+
+    #Map words to lower case
+    word_num: 13225 #15906
+    #For elmo the emb_size is 1024
+    embed_dim: 300
+    mask_dim: 30
+    char_num: 150
+    char_dim: 128
+    if_update_embed: False
+
+    # lstm
+    #l_hidden_size: 256
+    l_hidden_size: 64
+    l_num_layers: 4 # forward and backward
+    l_dropout: 0.1
+
+    # penlaty
+    C1: 0.01
+    C2: 0.04
+    if_reset: True
+
+    opt: Adam
+    dropout: 0.5
+    dropout2: 0.3
+    epoch: 30
+    lr: 0.0005
+    l2: 0.000
+    adjust_every: 8
+    clip_norm: 3
+    k_fold: 6
+    print_freq: 20
+    finetune_embed: False
+    # data processing
+    if_replace: False
+    training: True
+    # traning
+    if_gpu: True
+    use_gpu: True
+    # data_path: data/2014/data.pkl
+    # dic_path: data/2014/dic.pkl
+
+    #################Restaurant
+    pretrained_embed_path: ../data/glove.840B.300d.txt
+    embed_path: data/tweets/vocab/lower_local_emb.pkl
+    data_path: data/tweets/
+    train_path: data/tweets/train_lower.pkl
+    valid_path: data/tweets/valid_lower.pkl
+    test_path: data/tweets/test_lower.pkl
+    dic_path: data/tweets/vocab/lower_dict.pkl
+
+
+    model_path: data/models/
+    log_path: data/logs/
+    
+    is_stanford_nlp: False
+    elmo_config_file: None 
+    elmo_weight_file: None 
+    snapshot_dir: checkpoints/
